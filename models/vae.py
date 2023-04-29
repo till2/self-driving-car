@@ -1,85 +1,19 @@
-class ConvBlock(nn.Module):
-    """ Use this block to change the number of channels. """
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
-        super(ConvBlock, self).__init__()
-        
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.relu = nn.ReLU(inplace=True)
-        self.bn = nn.BatchNorm2d(out_channels)
+import os
+import numpy as np
 
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.relu(x)
-        x = self.bn(x)
-        return x
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.distributions import Normal, Categorical
 
-    
-class TransposeConvBlock(nn.Module):
-    """ Use this block to change the number of channels and perform a deconvolution
-        followed by batchnorm and a relu activation. """
-    def __init__(self, in_channels, out_channels):
-        super(TransposeConvBlock, self).__init__()
-        
-        self.deconv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
-        self.relu = nn.ReLU(inplace=True)
-        self.bn = nn.BatchNorm2d(out_channels)
+import torchvision
+from torchvision import transforms
 
-    def forward(self, x):
-        x = self.deconv(x)
-        x = self.relu(x)
-        x = self.bn(x)
-        return x
+from .blocks import ConvBlock, TransposeConvBlock, ResConvBlock
 
     
-class ResConvBlock(nn.Module):
-    """ This block needs the same number input and output channels.
-        It performs three convolutions with batchnorm, relu 
-        and then adds a skip connection. """
-    def __init__(self, in_channels, out_channels):
-        super(ResConvBlock, self).__init__()
-        
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        residual = x
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.bn1(x)
-        
-        x = self.conv2(x)        
-        x += residual
-        x = self.relu(x)
-        x = self.bn2(x)
-        return x
-
-    
-class CategoricalDistribution(nn.Module):
-    """
-    Given a tensor of logits, this module samples from a categorical distribution,
-    and computes the straight-through gradient estimator of the sampling operation.
-    """
-    def __init__(self, num_classes):
-        super(CategoricalDistribution, self).__init__()
-        self.num_classes = num_classes
-
-    def forward(self, logits):
-        # Compute the softmax probabilities
-        probs = F.softmax(logits, -1)
-
-        # Sample from the categorical distribution
-        m = Categorical(probs)
-        sample = F.one_hot(m.sample(), num_classes=self.num_classes)
-
-        # Compute the straight-through gradient estimator
-        grad = probs - probs.detach()
-        sample = sample + grad
-        
-        return sample
-
 class VAE(nn.Module):
     def __init__(self, greyscale=True, beta=4):
         super(VAE, self).__init__()
@@ -121,7 +55,7 @@ class VAE(nn.Module):
         )
         
         self.mu = nn.Linear(8*4*4, 32)
-        self.log_var = nn.Linear(8*4*4, 32)
+        self.logvar = nn.Linear(8*4*4, 32)
 
         self.decoder = nn.Sequential(
             TransposeConvBlock(2, 32),
@@ -148,8 +82,8 @@ class VAE(nn.Module):
         
     def encode(self, x):
         h = self.encoder(x)
-        mu, log_var = self.mu(h), self.log_var(h)
-        return mu, log_var
+        mu, logvar = self.mu(h), self.logvar(h)
+        return mu, logvar
     
     def decode(self, z):
         x = self.decoder(z)
@@ -157,27 +91,27 @@ class VAE(nn.Module):
         
     def forward(self, x):
         # get the distribution of z
-        mu, log_var = self.encode(x)
+        mu, logvar = self.encode(x)
         
         # reparameterization
-        std = torch.exp(log_var / 2)
-        epsilon = torch.randn_like(log_var)
+        std = torch.exp(logvar / 2)
+        epsilon = torch.randn_like(logvar)
         
         # sample z
         z = mu + std * epsilon
         
         # reconstruct x
         xhat = self.decode(z.view(-1, 2, 4, 4))
-        return xhat, mu, log_var
+        return xhat, mu, logvar
 
-    def get_loss(self, x, xhat, mu, log_var):
+    def get_loss(self, x, xhat, mu, logvar):
         
         # image reconstruction loss
         reconstruction_loss = F.mse_loss(x, xhat, reduction='sum')
         
         # KL divergence between the latent distribution and the standard normal distribution
-        var = torch.exp(log_var)
-        kl_divergence = 0.5 * torch.sum(var -log_var -1 +mu.pow(2))
+        var = torch.exp(logvar)
+        kl_divergence = 0.5 * torch.sum(var -logvar -1 +mu.pow(2))
         
         # total loss
         loss = reconstruction_loss + self.beta * kl_divergence
@@ -195,7 +129,30 @@ class VAE(nn.Module):
             self.eval()
         
     def get_num_params(self):
-        return sum(p.numel() for p in vae.parameters() if p.requires_grad)
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+    
+    def info(self):
+        """
+        Prints useful information, such as the device, 
+        number of parameters, 
+        input-, hidden- and output shapes. 
+        """
+        title = f"| {self.__class__.__name__} info |"
+        print(title)
+        print("-" * len(title))
+
+        if next(self.parameters()).is_cuda:
+            print("device: cuda")
+            batch_tensor_dummy = torch.rand(8, 1, 128, 128).cuda()
+        else:
+            print("device: cpu")
+            batch_tensor_dummy = torch.rand(8, 1, 128, 128).cpu()
+
+        print(f"number of parameters: {self.get_num_params():_}")
+        print("input shape :", list(batch_tensor_dummy.shape))
+        print("mu shape:", list(self.encode(batch_tensor_dummy)[0].shape))
+        print("logvar shape:", list(self.encode(batch_tensor_dummy)[1].shape))
+        print("output shape:", list(self(batch_tensor_dummy)[0].shape))
 
 # vae = VAE(greyscale=True).to(device)
 
