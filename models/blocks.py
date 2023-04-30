@@ -93,7 +93,7 @@ class CategoricalStraightThrough(nn.Module):
 
         # Compute the straight-through gradient estimator
         grad = probs - probs.detach()
-        sample = sample + grad
+        sample = sample + grad # has the gradient of probs
         
         self.entropy = m.entropy()
         return sample
