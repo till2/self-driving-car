@@ -12,17 +12,29 @@ import torchvision
 from torchvision import transforms
 
 from .blocks import ConvBlock, TransposeConvBlock, ResConvBlock, CategoricalStraightThrough
+from .mlp import MLP
 
 
-class CategoricalVAE(nn.Module):
-    def __init__(self, grayscale=True, vae_ent_coeff=0.0):
-        super(CategoricalVAE, self).__init__()
+class SeqCatVAE(nn.Module):
+    """
+    The sequential categorical VAE first feeds x through the CNN encoder, 
+    then concatenates the result with h and feeds concat(h,enc(x))
+    through a MLP to get the logits for the categorical distribution. 
+    Finally samples z from the categorical with straight-through gradients.  
+
+    Input: h (batch of determininistic hidden states) and x (batch of transformed input observations)
+    Output: z (sampled stochastic hidden state)
+    """
+    def __init__(self, H=512, Z=32*32, grayscale=True, vae_ent_coeff=0.0):
+        super(SeqCatVAE, self).__init__()
 
         if grayscale:
             self.input_channels = 1
         else:
             self.input_channels = 3
-            
+        
+        self.H = H
+        self.Z = Z
         self.vae_ent_coeff = vae_ent_coeff
         
         self.encoder = nn.Sequential(
@@ -49,7 +61,9 @@ class CategoricalVAE(nn.Module):
             ResConvBlock(16, 16),
         )
         
+        self.encoder_mlp = MLP(input_dims=self.H + 16*8*8, output_dims=self.Z) # H+16*8*8 -> Z
         self.categorical = CategoricalStraightThrough(num_classes=32)
+        self.decoder_mlp = MLP(input_dims=self.H+self.Z, output_dims=self.Z)
         
         self.decoder = nn.Sequential(
             TransposeConvBlock(1, 1024),
@@ -72,26 +86,29 @@ class CategoricalVAE(nn.Module):
             nn.Sigmoid()
         )
 
-    def encode(self, x):
-        logits = self.encoder(x).view(-1, 32, 32)
+    def encode(self, h, x):
+        h_and_x = torch.cat((h.view(-1, self.H), self.encoder(x).view(-1, 16*8*8)), dim=1)
+        logits = self.encoder_mlp(h_and_x).view(-1, 32, 32)
         z = self.categorical(logits)
         return z
     
-    def decode(self, z):
-        x = self.decoder(z.view(-1, 1, 32, 32))
+    def decode(self, h, z):
+        h_and_z = torch.cat((h.view(-1, self.H), z.view(-1, self.Z)), dim=1)
+        decoder_cnn_input = self.decoder_mlp(h_and_z).view(-1, 1, 32, 32)
+        x = self.decoder(decoder_cnn_input)
         return x
 
-    def forward(self, x):
-        z = self.encode(x).view(-1, 32, 32)
-        
-        # reconstruct x
-        xhat = self.decode(z)
-        return xhat
+    def forward(self, h, x):
+        # encode
+        z = self.encode(h, x).view(-1, 32, 32)
+        # decode
+        x_reconstruction = self.decode(h, z)
+        return x_reconstruction
 
-    def get_loss(self, x, xhat):
+    def get_loss(self, x, x_reconstruction):
         
         # image reconstruction loss
-        reconstruction_loss = F.mse_loss(x, xhat, reduction="mean")
+        reconstruction_loss = F.mse_loss(x, x_reconstruction, reduction="mean")
         
         # total loss
         entropy_loss = - self.vae_ent_coeff * self.categorical.entropy.mean()
@@ -101,57 +118,18 @@ class CategoricalVAE(nn.Module):
     def save_weights(self):
         if not os.path.exists("weights"):
             os.mkdir("weights")
-        torch.save(self.state_dict(), "weights/CategoricalVAE")
+        torch.save(self.state_dict(), "weights/SeqCatVAE")
     
-    def load_weights(self, path="weights/CategoricalVAE", eval_mode=True):
+    def load_weights(self, path="weights/SeqCatVAE", eval_mode=True):
         self.load_state_dict(torch.load(path))
         if eval_mode:
-            print("Set CategoricalVAE to evaluation mode.")
+            print("Set SequentialCategoricalVAE to evaluation mode.")
             self.eval()
         
-    def get_num_params(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
-    
-    def info(self):
-        """
-        Prints useful information, such as the device, 
-        number of parameters, 
-        input-, hidden- and output shapes. 
-        """
-        title = f"| {self.__class__.__name__} info |"
-        print(title)
-        print("-" * len(title))
-
-        if next(self.parameters()).is_cuda:
-            print("device: cuda")
-            batch_tensor_dummy = torch.rand(8, 1, 128, 128).cuda()
-        else:
-            print("device: cpu")
-            batch_tensor_dummy = torch.rand(8, 1, 128, 128).cpu()
-
-        print(f"number of parameters: {self.get_num_params():_}")
-        print("input shape :", list(batch_tensor_dummy.shape))
-        print("hidden shape:", list(self.encode(batch_tensor_dummy).shape))
-        print("output shape:", list(self(batch_tensor_dummy).shape))
-        print("vae_ent_coeff:", self.vae_ent_coeff)
-
 # batch_size = 8
-
-# vae = CategoricalVAE(
-#     greyscale=True,
+# vae = SeqCatVAE(
+#     H=512,
+#     Z=32*32,
+#     grayscale=True,
 #     vae_ent_coeff=0.000001
 # ).to(device)
-
-# vae_optim = optim.Adam(
-#     vae.parameters(), 
-#     lr=1e-2,
-#     weight_decay=1e-5 # l2 regularization
-# )
-
-# vae_scheduler = ReduceLROnPlateau(vae_optim, 'min', patience=100, factor=0.5)
-
-# def get_lr(optimizer):
-#     for param_group in optimizer.param_groups:
-#         return param_group["lr"]
-
-# print(vae.get_num_params())

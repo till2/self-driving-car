@@ -16,10 +16,10 @@ from .blocks import ConvBlock, TransposeConvBlock, ResConvBlock
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Autoencoder(nn.Module):
-    def __init__(self, greyscale=True):
+    def __init__(self, grayscale=True):
         super(Autoencoder, self).__init__()
 
-        if greyscale:
+        if grayscale:
             self.input_channels = 1
         else:
             self.input_channels = 3
