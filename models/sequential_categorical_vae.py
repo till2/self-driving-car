@@ -121,7 +121,7 @@ class SeqCatVAE(nn.Module):
         torch.save(self.state_dict(), "weights/SeqCatVAE")
     
     def load_weights(self, path="weights/SeqCatVAE", eval_mode=True):
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path)) 
         if eval_mode:
             print("Set SequentialCategoricalVAE to evaluation mode.")
             self.eval()
