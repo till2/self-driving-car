@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch import distributions as dist
 from torch.distributions import Normal, Categorical
 import torchvision
 from torchvision import transforms
@@ -87,12 +88,15 @@ class CategoricalStraightThrough(nn.Module):
         # Compute the softmax probabilities
         probs = F.softmax(logits.view(-1, self.num_classes, self.num_classes), -1)
 
+        # from the DreamerV3 paper: parameterize as 1% uniform and 99% logits to avoid near-deterministic distributions
+        probs = 0.01 * torch.ones_like(probs) / probs.shape[-1] + 0.99 * probs
+
         # Sample from the categorical distribution
-        m = Categorical(probs)
-        sample = F.one_hot(m.sample(), num_classes=self.num_classes)
+        m = dist.OneHotCategorical(probs=probs)
+        sample = m.sample()
 
         # Compute the straight-through gradient estimator
-        grad = probs - probs.detach()
+        grad = m.probs - m.probs.detach()
         sample = sample + grad # has the gradient of probs
         
         self.entropy = m.entropy()

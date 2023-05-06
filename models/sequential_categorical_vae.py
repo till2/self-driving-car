@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch import distributions as dist
 from torch.distributions import Normal, Categorical
 
 import torchvision
@@ -42,22 +43,22 @@ class SeqCatVAE(nn.Module):
             ResConvBlock(32, 32),
             ConvBlock(32, 32, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
             
+            ConvBlock(32, 32),
+            ResConvBlock(32, 32),
+            ConvBlock(32, 32, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
+            
             ConvBlock(32, 64),
             ResConvBlock(64, 64),
             ConvBlock(64, 64, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
             
-            ConvBlock(64, 128),
-            ResConvBlock(128, 128),
-            ConvBlock(128, 128, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
+            ConvBlock(64, 64),
+            ResConvBlock(64, 64),
+            ConvBlock(64, 64, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
             
-            ConvBlock(128, 256),
-            ResConvBlock(256, 256),
-            ConvBlock(256, 256, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
+            ConvBlock(64, 32),
+            ResConvBlock(32, 32),
             
-            ConvBlock(256, 512),
-            ResConvBlock(512, 512),
-            
-            ConvBlock(512, 16),
+            ConvBlock(32, 16),
             ResConvBlock(16, 16),
         )
         
@@ -66,28 +67,34 @@ class SeqCatVAE(nn.Module):
         self.decoder_mlp = MLP(input_dims=self.H+self.Z, output_dims=self.Z)
         
         self.decoder = nn.Sequential(
-            TransposeConvBlock(1, 1024),
-            ResConvBlock(1024, 1024),
-            
-            TransposeConvBlock(1024, 512),
-            ResConvBlock(512, 512),
-            
-            ConvBlock(512, 256),
-            ResConvBlock(256, 256),
-            
-            ConvBlock(256, 128),
+            TransposeConvBlock(1, 128),
             ResConvBlock(128, 128),
             
-            ConvBlock(128, 64),
+            TransposeConvBlock(128, 64),
             ResConvBlock(64, 64),
             
-            ConvBlock(64, 16),
+            ConvBlock(64, 64),
+            ResConvBlock(64, 64),
+            
+            ConvBlock(64, 32),
+            ResConvBlock(32, 32),
+            
+            ConvBlock(32, 32),
+            ResConvBlock(32, 32),
+            
+            ConvBlock(32, 16),
             nn.Conv2d(16, self.input_channels, kernel_size=3, padding=1, stride=1),
             nn.Sigmoid()
         )
 
     def encode(self, h, x):
+        # print("only x:", x)
         h_and_x = torch.cat((h.view(-1, self.H), self.encoder(x).view(-1, 16*8*8)), dim=1)
+        # x is the problem.
+        # print("----------------------------------------------")
+        # print(x)
+        # print(self.encoder(x))
+        # print("h_and_x:", h_and_x)
         logits = self.encoder_mlp(h_and_x).view(-1, 32, 32)
         z = self.categorical(logits)
         return z
