@@ -12,38 +12,37 @@ from torchvision import transforms
 
 
 class ConvBlock(nn.Module):
-    """ Use this block to change the number of channels. """
+    """ Use this block to perform a convolution and change the number of channels. """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
         super(ConvBlock, self).__init__()
         
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.relu = nn.ReLU(inplace=True)
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.norm = nn.BatchNorm2d(out_channels) # nn.LayerNorm([out_channels, height, width])
+        self.activation = nn.ELU(inplace=True)
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.relu(x)
-        x = self.bn(x)
+        x = self.norm(x)
+        x = self.activation(x)
         return x
 
     
 class TransposeConvBlock(nn.Module):
-    """ Use this block to change the number of channels and perform a deconvolution
-        followed by batchnorm and a relu activation. """
+    """ Use this block to perform a deconvolution and change the number of channels. """
     def __init__(self, in_channels, out_channels):
         super(TransposeConvBlock, self).__init__()
         
         self.deconv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
-        self.relu = nn.ReLU(inplace=True)
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.norm = nn.BatchNorm2d(out_channels) # nn.LayerNorm([out_channels, height, width])
+        self.activation = nn.ELU(inplace=True)
 
     def forward(self, x):
         x = self.deconv(x)
-        x = self.relu(x)
-        x = self.bn(x)
+        x = self.norm(x)
+        x = self.activation(x)
         return x
 
-    
+
 class ResConvBlock(nn.Module):
     """ This block needs the same number input and output channels.
         It performs three convolutions with batchnorm, relu 
@@ -53,22 +52,22 @@ class ResConvBlock(nn.Module):
         
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
+        self.norm1 = nn.BatchNorm2d(out_channels)
+        self.norm2 = nn.BatchNorm2d(out_channels)
+        self.activation = nn.ELU(inplace=True)
 
     def forward(self, x):
         # uncomment later. commenting stuff out to save parameters for now.
         # residual = x
 
         x = self.conv1(x)
-        x = self.relu(x)
-        x = self.bn1(x)
+        x = self.norm1(x)
+        x = self.activation(x)
         
         # x = self.conv2(x)        
         # x += residual
-        # x = self.relu(x)
-        # x = self.bn2(x)
+        # x = self.norm2(x)
+        # x = self.activation(x)
         return x
 
     

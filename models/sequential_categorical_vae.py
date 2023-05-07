@@ -88,13 +88,7 @@ class SeqCatVAE(nn.Module):
         )
 
     def encode(self, h, x):
-        # print("only x:", x)
         h_and_x = torch.cat((h.view(-1, self.H), self.encoder(x).view(-1, 16*8*8)), dim=1)
-        # x is the problem.
-        # print("----------------------------------------------")
-        # print(x)
-        # print(self.encoder(x))
-        # print("h_and_x:", h_and_x)
         logits = self.encoder_mlp(h_and_x).view(-1, 32, 32)
         z = self.categorical(logits)
         return z
