@@ -1,0 +1,20 @@
+# Setup
+debug: False
+logdir: "logs/"
+seed: 0
+precision: 32 # make 16
+device: "cuda:0" # cuda:0 / cpu
+
+# Env
+size: [128, 128]
+grayscale: True
+
+# Training
+toy_env: True
+n_episodes: 5000
+
+# Model
+batch_size: 8
+H: 512 # discrete h state
+num_categoricals: 32
+num_classes: 32
