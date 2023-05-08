@@ -12,6 +12,9 @@ grayscale: True
 # Training
 toy_env: True
 n_episodes: 5000
+max_episode_steps: 100
+env_id: "donkey-generated-roads-v0"
+max_grad_norm: 100
 
 # Model
 batch_size: 8

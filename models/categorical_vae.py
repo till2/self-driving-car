@@ -22,55 +22,58 @@ class CategoricalVAE(nn.Module):
             self.input_channels = 1
         else:
             self.input_channels = 3
-            
         self.vae_ent_coeff = vae_ent_coeff
         
-        self.encoder = nn.Sequential(
-            ConvBlock(self.input_channels, 32),
-            ResConvBlock(32, 32),
-            ConvBlock(32, 32, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            ConvBlock(32, 64),
-            ResConvBlock(64, 64),
-            ConvBlock(64, 64, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            ConvBlock(64, 128),
-            ResConvBlock(128, 128),
-            ConvBlock(128, 128, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            ConvBlock(128, 256),
-            ResConvBlock(256, 256),
-            ConvBlock(256, 256, kernel_size=4, padding=1, stride=2), #nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            ConvBlock(256, 512),
-            ResConvBlock(512, 512),
-            
-            ConvBlock(512, 16),
-            ResConvBlock(16, 16),
-        )
-        
+        self.encoder = nn.Sequential()
+        self.decoder = nn.Sequential()
         self.categorical = CategoricalStraightThrough(num_classes=32)
+
+        # settings
+        kernel_size = 3
+        stride = 2
+        padding = 1
+
+        # channels
+        input_channels = self.input_channels
+        channels = [16, 32, 64, 128, 256, 512, 1024]
+
+        print("Initializing encoder:")
+        height, width = 128, 128
+        for i, out_channels in enumerate(channels):
+            
+            height = (height + 2*padding - kernel_size) // stride + 1
+            width = (width + 2*padding - kernel_size) // stride + 1
+
+            print(f"- adding ConvBlock({input_channels, out_channels}) \
+                  ==> output shape: ({out_channels}, {height}, {width}) ==> prod: {out_channels * height * width}")
+            conv_block = ConvBlock(input_channels, out_channels, kernel_size, stride, 
+                                   padding, height, width)
+            self.encoder.add_module(f"conv_block_{i}", conv_block)
+            
+            input_channels = out_channels
         
-        self.decoder = nn.Sequential(
-            TransposeConvBlock(1, 1024),
-            ResConvBlock(1024, 1024),
+        print("\nInitializing decoder:")
+        height, width = 1, 1
+        padding=1
+        for i, out_channels in enumerate(reversed(channels)):
             
-            TransposeConvBlock(1024, 512),
-            ResConvBlock(512, 512),
+            height = (height - 1)*stride - 2*padding + kernel_size + 1
+            width = (width - 1)*stride - 2*padding + kernel_size + 1
             
-            ConvBlock(512, 256),
-            ResConvBlock(256, 256),
+            # last layer
+            if i == len(channels)-1:
+                out_channels = self.input_channels
             
-            ConvBlock(256, 128),
-            ResConvBlock(128, 128),
+            print(f"- adding transpose ConvBlock({input_channels}, {out_channels}) \
+                  ==> output shape: ({out_channels}, {height}, {width}) ==> prod: {out_channels * height * width}")
+            transpose_conv_block = ConvBlock(input_channels, out_channels, kernel_size, stride, 
+                                             padding, height, width, transpose_conv=True)
+            self.decoder.add_module(f"transpose_conv_block_{i}", transpose_conv_block)
             
-            ConvBlock(128, 64),
-            ResConvBlock(64, 64),
-            
-            ConvBlock(64, 16),
-            nn.Conv2d(16, self.input_channels, kernel_size=3, padding=1, stride=1),
-            nn.Sigmoid()
-        )
+            input_channels = out_channels
+
+        self.decoder.add_module("output_activation", nn.Sigmoid())
+
 
     def encode(self, x):
         logits = self.encoder(x).view(-1, 32, 32)
@@ -78,16 +81,14 @@ class CategoricalVAE(nn.Module):
         return z
     
     def decode(self, z):
-        x = self.decoder(z.view(-1, 1, 32, 32))
+        x = self.decoder(z.view(-1, 32*32, 1, 1))
         return x
 
     def forward(self, x):
         z = self.encode(x).view(-1, 32, 32)
+        x_hat = self.decode(z)
+        return x_hat
         
-        # reconstruct x
-        xhat = self.decode(z)
-        return xhat
-
     def get_loss(self, x, xhat):
         
         # image reconstruction loss

@@ -13,15 +13,25 @@ from torchvision import transforms
 
 class ConvBlock(nn.Module):
     """ Use this block to perform a convolution and change the number of channels. """
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, 
+                    height=None, width=None, transpose_conv=False):
         super(ConvBlock, self).__init__()
         
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.norm = nn.BatchNorm2d(out_channels) # nn.LayerNorm([out_channels, height, width])
+        if transpose_conv:
+            self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, output_padding=1)
+        else:
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+
+        if height and width:
+            self.norm = nn.LayerNorm([out_channels, height, width])
+        else:
+            self.norm = nn.BatchNorm2d(out_channels)
+
         self.activation = nn.ELU(inplace=True)
 
     def forward(self, x):
         x = self.conv(x)
+        print("Output shape:", x.shape)
         x = self.norm(x)
         x = self.activation(x)
         return x
