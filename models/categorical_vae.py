@@ -15,14 +15,15 @@ from .blocks import ConvBlock, TransposeConvBlock, ResConvBlock, CategoricalStra
 
 
 class CategoricalVAE(nn.Module):
-    def __init__(self, grayscale=True, vae_ent_coeff=0.0):
+    def __init__(self, grayscale=True, entropyloss_coeff=0.0, uniform_ratio=0.01):
         super(CategoricalVAE, self).__init__()
 
         if grayscale:
             self.input_channels = 1
         else:
             self.input_channels = 3
-        self.vae_ent_coeff = vae_ent_coeff
+        self.entropyloss_coeff = entropyloss_coeff
+        self.uniform_ratio = uniform_ratio
         
         self.encoder = nn.Sequential()
         self.decoder = nn.Sequential()
@@ -35,7 +36,7 @@ class CategoricalVAE(nn.Module):
 
         # channels
         input_channels = self.input_channels
-        channels = [16, 32, 64, 128, 256, 512, 1024]
+        channels = [16, 32, 64, 128, 64]
 
         print("Initializing encoder:")
         height, width = 128, 128
@@ -47,13 +48,21 @@ class CategoricalVAE(nn.Module):
             print(f"- adding ConvBlock({input_channels, out_channels}) \
                   ==> output shape: ({out_channels}, {height}, {width}) ==> prod: {out_channels * height * width}")
             conv_block = ConvBlock(input_channels, out_channels, kernel_size, stride, 
-                                   padding, height, width)
+                                   padding, height, width, bias=False)
             self.encoder.add_module(f"conv_block_{i}", conv_block)
-            
             input_channels = out_channels
         
+        # Add linear layer after the encoder
+        print(f"- adding Flatten()")
+        self.encoder.add_module("flatten", nn.Flatten())
+        #print(f"- adding Linear({input_channels * height * width}, {32*32})")
+        #self.encoder.add_module("linear", nn.Linear(input_channels * height * width, 32 * 32))
+        print(f"- adding Reshape: (*,{32 * 32}) => (*,32,32)") # reshape in self.encode function
+            
+        
         print("\nInitializing decoder:")
-        height, width = 1, 1
+        print(f"- adding Reshape: (*,{32 * 32}) => (*,64,4,4)") # reshape in self.decode function
+        height, width = 4, 4
         padding=1
         for i, out_channels in enumerate(reversed(channels)):
             
@@ -67,7 +76,7 @@ class CategoricalVAE(nn.Module):
             print(f"- adding transpose ConvBlock({input_channels}, {out_channels}) \
                   ==> output shape: ({out_channels}, {height}, {width}) ==> prod: {out_channels * height * width}")
             transpose_conv_block = ConvBlock(input_channels, out_channels, kernel_size, stride, 
-                                             padding, height, width, transpose_conv=True)
+                                             padding, height, width, bias=False, transpose_conv=True)
             self.decoder.add_module(f"transpose_conv_block_{i}", transpose_conv_block)
             
             input_channels = out_channels
@@ -75,27 +84,28 @@ class CategoricalVAE(nn.Module):
         self.decoder.add_module("output_activation", nn.Sigmoid())
 
 
-    def encode(self, x):
+    def encode(self, x, uniform_ratio=0.01):
         logits = self.encoder(x).view(-1, 32, 32)
-        z = self.categorical(logits)
+        z = self.categorical(logits, uniform_ratio)
         return z
     
     def decode(self, z):
-        x = self.decoder(z.view(-1, 32*32, 1, 1))
+        print("viewing z as (*,64, 4, 4)")
+        x = self.decoder(z.view(-1, 64, 4, 4))
         return x
 
     def forward(self, x):
         z = self.encode(x).view(-1, 32, 32)
         x_hat = self.decode(z)
         return x_hat
-        
+    
     def get_loss(self, x, xhat):
         
         # image reconstruction loss
         reconstruction_loss = F.mse_loss(x, xhat, reduction="mean")
         
         # total loss
-        entropy_loss = - self.vae_ent_coeff * self.categorical.entropy.mean()
+        entropy_loss = - self.entropyloss_coeff * self.categorical.entropy.mean()
         loss = reconstruction_loss + entropy_loss
         return loss, reconstruction_loss, entropy_loss
 
@@ -109,9 +119,10 @@ class CategoricalVAE(nn.Module):
         if eval_mode:
             print("Set CategoricalVAE to evaluation mode.")
             self.eval()
-        
-    def get_num_params(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+    
+    @classmethod
+    def get_num_params(self, model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
     
     def info(self):
         """
@@ -119,7 +130,7 @@ class CategoricalVAE(nn.Module):
         number of parameters, 
         input-, hidden- and output shapes. 
         """
-        title = f"| {self.__class__.__name__} info |"
+        title = f"\n| {self.__class__.__name__} info |"
         print(title)
         print("-" * len(title))
 
@@ -130,17 +141,20 @@ class CategoricalVAE(nn.Module):
             print("device: cpu")
             batch_tensor_dummy = torch.rand(8, 1, 128, 128).cpu()
 
-        print(f"number of parameters: {self.get_num_params():_}")
+        print(f"number of parameters: {self.get_num_params(self):,} (encoder: {self.get_num_params(self.encoder):,}, decoder: {self.get_num_params(self.decoder):,})")
         print("input shape :", list(batch_tensor_dummy.shape))
         print("hidden shape:", list(self.encode(batch_tensor_dummy).shape))
         print("output shape:", list(self(batch_tensor_dummy).shape))
-        print("vae_ent_coeff:", self.vae_ent_coeff)
+        print("entropyloss_coeff:", self.entropyloss_coeff)
+        print("uniform_ratio:", self.uniform_ratio)
+
+
 
 # batch_size = 8
 
 # vae = CategoricalVAE(
 #     greyscale=True,
-#     vae_ent_coeff=0.000001
+#     entropyloss_coeff=0.000001
 # ).to(device)
 
 # vae_optim = optim.Adam(

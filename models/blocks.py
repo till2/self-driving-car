@@ -14,29 +14,28 @@ from torchvision import transforms
 class ConvBlock(nn.Module):
     """ Use this block to perform a convolution and change the number of channels. """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, 
-                    height=None, width=None, transpose_conv=False):
+                    height=None, width=None, bias=False, transpose_conv=False):
         super(ConvBlock, self).__init__()
         
         if transpose_conv:
-            self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, output_padding=1)
+            self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias, output_padding=1)
         else:
-            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
 
         if height and width:
             self.norm = nn.LayerNorm([out_channels, height, width])
         else:
             self.norm = nn.BatchNorm2d(out_channels)
 
-        self.activation = nn.ELU(inplace=True)
+        self.activation = nn.SiLU(inplace=True) # DreamerV2: ELU, DreamerV3: SiLU
 
     def forward(self, x):
         x = self.conv(x)
-        print("Output shape:", x.shape)
         x = self.norm(x)
         x = self.activation(x)
         return x
 
-    
+
 class TransposeConvBlock(nn.Module):
     """ Use this block to perform a deconvolution and change the number of channels. """
     def __init__(self, in_channels, out_channels):
@@ -92,13 +91,13 @@ class CategoricalStraightThrough(nn.Module):
         self.num_classes = num_classes
         self.entropy = None
 
-    def forward(self, logits):
+    def forward(self, logits, uniform_ratio=0.01):
         
         # Compute the softmax probabilities
         probs = F.softmax(logits.view(-1, self.num_classes, self.num_classes), -1)
 
         # from the DreamerV3 paper: parameterize as 1% uniform and 99% logits to avoid near-deterministic distributions
-        probs = 0.01 * torch.ones_like(probs) / probs.shape[-1] + 0.99 * probs
+        probs = uniform_ratio * torch.ones_like(probs) / probs.shape[-1] + (1-uniform_ratio) * probs
 
         # Sample from the categorical distribution
         m = dist.OneHotCategorical(probs=probs)
