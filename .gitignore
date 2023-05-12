@@ -153,6 +153,7 @@ cython_debug/
 *.txt
 unitylog.txt
 gym-donkeycar/
+reconstructions/
 
 # TensorBoard logs
 logs/

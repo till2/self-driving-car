@@ -10,10 +10,10 @@ size: [128, 128]
 grayscale: True
 
 # Training
-toy_env: True
+toy_env: False
 n_episodes: 5000
 max_episode_steps: 100
-env_id: "donkey-generated-roads-v0"
+env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 max_grad_norm: 100
 
 # Model

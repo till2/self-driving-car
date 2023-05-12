@@ -11,11 +11,11 @@ from torch.distributions import Normal, Categorical
 import torchvision
 from torchvision import transforms
 
-from .blocks import ConvBlock, TransposeConvBlock, ResConvBlock, CategoricalStraightThrough
+from .blocks import ConvBlock, CategoricalStraightThrough
 
 
 class CategoricalVAE(nn.Module):
-    def __init__(self, grayscale=True, entropyloss_coeff=0.0, uniform_ratio=0.01):
+    def __init__(self, features=512+32*32, grayscale=True, entropyloss_coeff=0.0, uniform_ratio=0.01):
         super(CategoricalVAE, self).__init__()
 
         if grayscale:
@@ -25,6 +25,7 @@ class CategoricalVAE(nn.Module):
         self.entropyloss_coeff = entropyloss_coeff
         self.uniform_ratio = uniform_ratio
         
+        self.linear = nn.Linear(features, 64*4*4)
         self.encoder = nn.Sequential()
         self.decoder = nn.Sequential()
         self.categorical = CategoricalStraightThrough(num_classes=32)
@@ -85,20 +86,16 @@ class CategoricalVAE(nn.Module):
 
 
     def encode(self, x, uniform_ratio=0.01):
-        logits = self.encoder(x).view(-1, 32, 32)
+        logits = self.encoder(x).view(-1,32,32)
         z = self.categorical(logits, uniform_ratio)
         return z
     
-    def decode(self, z):
-        print("viewing z as (*,64, 4, 4)")
-        x = self.decoder(z.view(-1, 64, 4, 4))
-        return x
-
-    def forward(self, x):
-        z = self.encode(x).view(-1, 32, 32)
-        x_hat = self.decode(z)
+    def decode(self, h, z_flat):
+        zh = torch.cat((h, z_flat), dim=-1)
+        dec_inp = self.linear(zh).view(-1,64,4,4)
+        x_hat = self.decoder(dec_inp.view(-1,64,4,4))
         return x_hat
-    
+
     def get_loss(self, x, xhat):
         
         # image reconstruction loss
@@ -137,36 +134,16 @@ class CategoricalVAE(nn.Module):
         if next(self.parameters()).is_cuda:
             print("device: cuda")
             batch_tensor_dummy = torch.rand(8, 1, 128, 128).cuda()
+            h_dummy = torch.rand(8, 512).cuda()
         else:
             print("device: cpu")
             batch_tensor_dummy = torch.rand(8, 1, 128, 128).cpu()
+            h_dummy = torch.rand(8, 512).cpu()
 
         print(f"number of parameters: {self.get_num_params(self):,} (encoder: {self.get_num_params(self.encoder):,}, decoder: {self.get_num_params(self.decoder):,})")
         print("input shape :", list(batch_tensor_dummy.shape))
-        print("hidden shape:", list(self.encode(batch_tensor_dummy).shape))
-        print("output shape:", list(self(batch_tensor_dummy).shape))
+        enc_dummy = self.encode(batch_tensor_dummy).detach()
+        print("hidden shape:", list(enc_dummy.shape))
+        print("output shape:", list(self.decode(h_dummy, enc_dummy.flatten(start_dim=1, end_dim=2)).shape))
         print("entropyloss_coeff:", self.entropyloss_coeff)
         print("uniform_ratio:", self.uniform_ratio)
-
-
-
-# batch_size = 8
-
-# vae = CategoricalVAE(
-#     greyscale=True,
-#     entropyloss_coeff=0.000001
-# ).to(device)
-
-# vae_optim = optim.Adam(
-#     vae.parameters(), 
-#     lr=1e-2,
-#     weight_decay=1e-5 # l2 regularization
-# )
-
-# vae_scheduler = ReduceLROnPlateau(vae_optim, 'min', patience=100, factor=0.5)
-
-# def get_lr(optimizer):
-#     for param_group in optimizer.param_groups:
-#         return param_group["lr"]
-
-# print(vae.get_num_params())
