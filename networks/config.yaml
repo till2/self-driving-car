@@ -10,7 +10,7 @@ size: [128, 128]
 grayscale: True
 
 # Training
-toy_env: False
+toy_env: True
 n_episodes: 5000
 max_episode_steps: 100
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
@@ -21,3 +21,11 @@ batch_size: 8
 H: 512 # discrete h state
 num_categoricals: 32
 num_classes: 32
+
+# MLP
+mlp_n_layers: 3
+mlp_hidden_dims: 256
+
+# Actor-Critic
+action_clip_min: -1
+action_clip_max: 1

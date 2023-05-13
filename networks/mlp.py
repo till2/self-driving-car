@@ -1,15 +1,19 @@
+from operator import itemgetter
 import torch.nn as nn
 import torch.nn.functional as F
+from .utils import to_np, load_config
 
 class MLP(nn.Module):
-    def __init__(self, input_dims, output_dims, n_layers=3, out_type="linear"):
+    def __init__(self, input_dims, output_dims, out_type="linear"):
         super(MLP, self).__init__()
+
+        config = load_config()
         
         self.input_dims = input_dims
-        self.hidden_dims = 256 # ead from config
+        self.hidden_dims = itemgetter("mlp_hidden_dims")(config)
         self.output_dims = output_dims
         
-        self.n_layers = n_layers
+        self.n_layers = itemgetter("mlp_n_layers")(config)
         self.layers = nn.Sequential()
         self.out_type = out_type
         
