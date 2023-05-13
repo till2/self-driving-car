@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch import distributions as dist
 
+
 class ConvBlock(nn.Module):
     """ Use this block to perform a convolution and change the number of channels. """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, 
