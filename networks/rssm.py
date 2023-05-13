@@ -18,8 +18,9 @@ class RSSM(nn.Module):
         super(RSSM, self).__init__()
 
         config = load_config()
-        A, H, Z = itemgetter("A", "H", "Z")(config)
+        self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
         self.num_categoricals, self.num_classes = itemgetter("num_categoricals", "num_classes")(config)
+        A, H, Z = self.A, self.H, self.Z
 
         # init the VAE
         self.vae = CategoricalVAE(features=H+Z)
@@ -34,6 +35,7 @@ class RSSM(nn.Module):
         self.continue_mlp = MLP(input_dims=H+Z, output_dims=1) # state (H+Z)->1 # add sigmoid and BinaryCE  
     
     def step(self, action, h, z):
+        A, H, Z = self.A, self.H, self.Z
 
         # concatenate the rnn_input and apply RNN to obtain the next hidden state
         rnn_input = torch.cat((action, h.view(-1, H), z), 1)
