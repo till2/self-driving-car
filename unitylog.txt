@@ -21,14 +21,14 @@ blend_equation_advanced_coherent GL_NVX_blend_equation_advanced_multi_draw_buffe
 der_passthrough GL_NV_gpu_program4 GL_NV_internalformat_sample_query GL_NV_gpu_program4_1 GL_NV_gpu_program5 GL_NV_gpu_program5_mem_extended GL_NV_gpu_program_fp64 GL_NV_gpu_shader5 GL_NV_half_float GL_NV_light_max_exponent GL_NV_memory_attachment GL_NV_mesh_shader GL_NV_multisample_coverage GL_NV_multisample_filter_hint GL_NV_occlusion_query GL_NV_packed_depth_stencil GL_NV_parameter_buffer_object GL_NV_parameter_buffer_object2 GL_NV_path_rendering GL_NV_path_rendering_shared_edge GL_NV_pixel_data_range GL_NV_point_sprite GL_NV_primitive_restart GL_NV_primitive_shading_rate GL_NV_query_resource GL_NV_query_resource_tag GL_NV_register_combiners GL_NV_register_combiners2 GL_NV_representative_fragment_test GL_NV_sample_locations GL_NV_sample_mask_override_coverage GL_NV_scissor_exclusive GL_NV_shader_atomic_counters GL_NV_shader_atomic_float GL_NV_shader_atomic_float64 GL_NV_shader_atomic_fp16_vector GL_NV_shader_atomic_int64 GL_NV_shader_buffer_load GL_NV_shader_storage_buffer_object GL_NV_shader_subgroup_par
 titioned GL_NV_shader_texture_footprint GL_NV_shading_rate_image GL_NV_stereo_view_rendering GL_NV_texgen_reflection GL_NV_texture_barrier GL_NV_texture_compression_vtc GL_NV_texture_dirty_tile_map GL_NV_texture_env_combine4 GL_NV_texture_multisample GL_NV_texture_rectangle GL_NV_texture_rectangle_compressed GL_NV_texture_shader GL_NV_texture_shader2 GL_NV_texture_shader3 GL_NV_transform_feedback GL_NV_transform_feedback2 GL_NV_uniform_buffer_unified_memory GL_NV_vdpau_interop GL_NV_vdpau_interop2 GL_NV_vertex_array_range GL_NV_vertex_array_range2 GL_NV_vertex_attrib_integer_64bit GL_NV_vertex_buffer_unified_memory GL_NV_vertex_program GL_NV_vertex_program1_1 GL_NV_vertex_program2 GL_NV_vertex_program2_option GL_NV_vertex_program3 GL_NV_viewport_array2 GL_NV_viewport_swizzle GL_NVX_conditional_render GL_NV_gpu_multicast GL_NVX_progress_fence GL_NVX_gpu_memory_info GL_NVX_nvenc_interop GL_NV_shader_thread_group GL_NV_shader_thread_shuffle GL_KHR_blend_equation_advanced GL_KHR_blend_equation_advanced_coherent 
 GL_OVR_multiview GL_OVR_multiview2 GL_SGIS_generate_mipmap GL_SGIS_texture_lod GL_SGIX_depth_texture GL_SGIX_shadow GL_SUN_slice_accum
-OPENGL LOG: Creating OpenGL 4.5 graphics device ; Context level  <OpenGL 4.5> ; Context handle 17083144
+OPENGL LOG: Creating OpenGL 4.5 graphics device ; Context level  <OpenGL 4.5> ; Context handle 7906856
 Begin MonoManager ReloadAssembly
-- Completed reload, in  0.027 seconds
+- Completed reload, in  0.032 seconds
 Default vsync count 0
 requesting resize 1440 x 737
 resizing window to 1440 x 737
 Desktop is 1920 x 1080 @ 60 Hz
-UnloadTime: 0.385707 ms
+UnloadTime: 0.342126 ms
 Desktop is 1920 x 1080 @ 60 Hz
 SDSandbox Server starting.
 
@@ -43,18 +43,18 @@ Server Listening on: 0.0.0.0:9092
 Waiting for a connection...
 
 Setting up 12 worker threads for Enlighten.
-  Thread -> id: 7f0c511f9640 -> priority: 1 
-  Thread -> id: 7f0c509f8640 -> priority: 1 
-  Thread -> id: 7f0c23fff640 -> priority: 1 
-  Thread -> id: 7f0c237fe640 -> priority: 1 
-  Thread -> id: 7f0c22ffd640 -> priority: 1 
-  Thread -> id: 7f0c227fc640 -> priority: 1 
-  Thread -> id: 7f0c21bee640 -> priority: 1 
-  Thread -> id: 7f0c213ed640 -> priority: 1 
-  Thread -> id: 7f0c20bec640 -> priority: 1 
-  Thread -> id: 7f0bcffff640 -> priority: 1 
-  Thread -> id: 7f0bcd79a640 -> priority: 1 
-  Thread -> id: 7f0bccf99640 -> priority: 1 
+  Thread -> id: 7f10591f1640 -> priority: 1 
+  Thread -> id: 7f10589f0640 -> priority: 1 
+  Thread -> id: 7f1023fff640 -> priority: 1 
+  Thread -> id: 7f10237fe640 -> priority: 1 
+  Thread -> id: 7f1022ffd640 -> priority: 1 
+  Thread -> id: 7f10223ef640 -> priority: 1 
+  Thread -> id: 7f1021bee640 -> priority: 1 
+  Thread -> id: 7f10213ed640 -> priority: 1 
+  Thread -> id: 7f1020bec640 -> priority: 1 
+  Thread -> id: 7f0fcffff640 -> priority: 1 
+  Thread -> id: 7f0fcf7fe640 -> priority: 1 
+  Thread -> id: 7f0fcdfcb640 -> priority: 1 
 Waiting for a connection...
 
 client connected.
@@ -64,7 +64,7 @@ mini_monaco
 loaded scene
 
 Unloading 9 Unused Serialized files (Serialized files now loaded: 0)
-UnloadTime: 7.939065 ms
+UnloadTime: 7.576344 ms
 JustOne removing instance.MainThDisp
 
 JustOne removing instance.SandboxServer
@@ -76,6 +76,8 @@ Added timer
 car loaded.
 
 
-Unloading 34 unused Assets to reduce memory usage. Loaded Objects now: 6493.
-Total: 6.430465 ms (FindLiveObjects: 0.151272 ms CreateObjectMapping: 0.044865 ms MarkObjects: 0.699852 ms  DeleteObjects: 5.534344 ms)
+Unloading 34 unused Assets to reduce memory usage. Loaded Objects now: 6494.
+Total: 7.115409 ms (FindLiveObjects: 0.156269 ms CreateObjectMapping: 0.048923 ms MarkObjects: 0.776942 ms  DeleteObjects: 6.133110 ms)
+
+Collision with Challenge
 
