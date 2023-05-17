@@ -32,24 +32,28 @@ class RSSM(nn.Module):
         # init MLPs
         self.dynamics_mlp = MLP(input_dims=H, output_dims=Z) # H -> Z
         self.reward_mlp = MLP(input_dims=H+Z, output_dims=1) # state (H+Z) -> 1
-        self.continue_mlp = MLP(input_dims=H+Z, output_dims=1) # state (H+Z)->1 # add sigmoid and BinaryCE  
+        self.continue_mlp = MLP(input_dims=H+Z, output_dims=1, out_type="sigmoid") # state (H+Z)->1 # add sigmoid and BinaryCE  
     
     def step(self, action, h, z):
         A, H, Z = self.A, self.H, self.Z
+        h = h.view(-1, H)
 
         # reconstruct the image
         x_reconstruction = self.vae.decode(h, z)
 
-        # concatenate the rnn_input and apply RNN to obtain the next hidden state
-        rnn_input = torch.cat((action, h.view(-1, H), z), 1)
-        _, h = self.rnn(rnn_input, h.view(-1, H))
-        
-        state = torch.cat((h.view(-1, H), z), 1)
+        state = torch.cat((h, z), dim=1)
         
         # predict the reward and continue flag
         reward_pred = self.reward_mlp(state)
-        continue_prob = torch.sigmoid(self.continue_mlp(state)) # binary classification
-        continue_pred = bool(continue_prob > 0.5)
+        continue_prob = self.continue_mlp(state) # binary classification
+        continue_pred = torch.bernoulli(continue_prob)
+
+        # rssm step:
+        # concatenate the rnn_input and apply RNN to obtain the next hidden state
+        rnn_input = torch.cat((action, h, z), 1)
+        # linear in
+        _, h = self.rnn(rnn_input, h)
+        # linear out  
         
         return h, reward_pred, continue_prob, continue_pred, x_reconstruction
     
