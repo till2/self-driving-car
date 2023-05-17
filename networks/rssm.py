@@ -37,6 +37,9 @@ class RSSM(nn.Module):
     def step(self, action, h, z):
         A, H, Z = self.A, self.H, self.Z
 
+        # reconstruct the image
+        x_reconstruction = self.vae.decode(h, z)
+
         # concatenate the rnn_input and apply RNN to obtain the next hidden state
         rnn_input = torch.cat((action, h.view(-1, H), z), 1)
         _, h = self.rnn(rnn_input, h.view(-1, H))
@@ -48,14 +51,12 @@ class RSSM(nn.Module):
         continue_prob = torch.sigmoid(self.continue_mlp(state)) # binary classification
         continue_pred = bool(continue_prob > 0.5)
         
-        x_reconstruction = self.vae.decode(h, z)
-        
         return h, reward_pred, continue_prob, continue_pred, x_reconstruction
     
     def get_losses(self,
-                   x_target, x_pred, 
-                   reward_target, reward_pred, 
-                   continue_target, continue_prob, 
+                   x_target, x_pred,
+                   reward_target, reward_pred,
+                   continue_target, continue_prob,
                    z_pred, z):
         
         image_loss = F.mse_loss(x_target, x_pred, reduction="mean")
