@@ -82,62 +82,52 @@ class ContinuousActorCritic(nn.Module):
         """
         Computes the loss of actor and critic using GAE.
         """
-        T = len(ep_rewards)
-        advantages = torch.zeros_like(ep_rewards)
+        # T = len(ep_rewards)
+        # advantages = torch.zeros_like(ep_rewards)
 
-        # compute the advantages using GAE
-        gae = 0.0
-        for t in reversed(range(T - 1)):
-            td_error = (
-                ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t + 1] - ep_value_preds[t]
-            )
-            gae = td_error + self.gamma * self.lam * ep_masks[t] * gae
-            advantages[t] = gae
+        # # compute the advantages using GAE
+        # gae = 0.0
+        # for t in reversed(range(T - 1)):
+        #     td_error = (
+        #         ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t + 1] - ep_value_preds[t]
+        #     )
+        #     gae = td_error + self.gamma * self.lam * ep_masks[t] * gae
+        #     advantages[t] = gae
 
-        # normalize the advantages to stabilize training
-        # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-10) #+## new line
+        # # calculate the loss of the minibatch for actor and critic
+        # critic_loss = advantages.pow(2).mean()
 
-        # calculate the loss of the minibatch for actor and critic
-        critic_loss = advantages.pow(2).mean()
-
-        # give a bonus for higher entropy to encourage exploration
-        actor_loss = -(advantages.detach() * ep_log_probs).mean() - self.entropy_coeff * ep_entropies.mean()
+        # # give a bonus for higher entropy to encourage exploration
+        # actor_loss = -(advantages.detach() * ep_log_probs).mean() - self.entropy_coeff * ep_entropies.mean()
         
-        return critic_loss, actor_loss
+        # return critic_loss, actor_loss
 
         #
         ###
         #
 
         # # append the next_value_pred to value preds tensor
-        # ep_value_preds = torch.cat((ep_value_preds, last_value_pred.T.detach()), dim=0)
+        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.T.detach()), dim=0)
 
         # # set up tensors for the advantage calculation
-        # returns = torch.zeros_like(ep_rewards)
-        # advantages = torch.zeros_like(ep_rewards)
-        # next_advantage = torch.zeros_like(last_value_pred).T
+        returns = torch.zeros_like(ep_rewards)
+        advantages = torch.zeros_like(ep_rewards)
+        next_advantage = torch.zeros_like(last_value_pred).T
 
-        # # calculate advantages using GAE
-        # for t in reversed(range(len(ep_rewards))):
-        #     returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
-        #     td_error = returns[t] -  ep_value_preds[t]
-        #     advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
-
-        # # normalize the advantages to stabilize training
-        # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-10)
+        # calculate advantages using GAE
+        for t in reversed(range(len(ep_rewards))):
+            returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
+            td_error = returns[t] -  ep_value_preds[t]
+            advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
 
         # # calculate the critic loss (without the additional value pred that was needed for the advantage calculation)
         # # critic_loss = F.mse_loss(ep_value_preds[:-1], returns)
-        # critic_loss = advantages.pow(2).mean()
+        critic_loss = advantages.pow(2).mean()
 
-        # # calculate the actor loss using the policy gradient theorem
-        # actor_loss = -(ep_log_probs * advantages).mean() # (returns - ep_value_preds[:-1])
+        # calculate the actor loss using the policy gradient theorem and give an entropy bonus
+        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.entropy_coeff * ep_entropies.mean()
 
-        # # give the actor an entropy bonus
-        # entropy_bonus = - self.entropy_coeff * ep_entropies.mean()
-        # actor_loss = actor_loss + entropy_bonus
-
-        # return critic_loss, actor_loss
+        return critic_loss, actor_loss
     
     def update_parameters(
         self, critic_loss: torch.Tensor, actor_loss: torch.Tensor
@@ -148,10 +138,10 @@ class ContinuousActorCritic(nn.Module):
 
         self.critic_optim.zero_grad()
         critic_loss.backward()
-        nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=10.0, norm_type=2)
+        nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0, norm_type=2)
         self.critic_optim.step()
 
         self.actor_optim.zero_grad()
         actor_loss.backward()
-        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=10.0, norm_type=2)
+        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0, norm_type=2)
         self.actor_optim.step()
