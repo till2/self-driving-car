@@ -45,7 +45,7 @@ class RSSM(nn.Module):
         
         # predict the reward and continue flag
         reward_pred = self.reward_mlp(state)
-        continue_prob = self.continue_mlp(state) # binary classification
+        continue_prob = self.continue_mlp(state)
         continue_pred = torch.bernoulli(continue_prob)
 
         # rssm step:

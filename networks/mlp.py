@@ -42,11 +42,11 @@ class MLP(nn.Module):
                     activation = False
                     self.output_mean = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        nn.Tanh() # => [-1,1]
+                        # nn.Tanh() # => [-1,1]
                     )
                     self.output_var = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        nn.Softplus() # => [0, inf]
+                        # nn.Sigmoid() # => [0, 1]
                     )
                     
             # define block
@@ -77,5 +77,5 @@ class MLP(nn.Module):
         x = self.layers(x)
         if self.out_type == "gaussian":
             return self.output_mean(x), self.output_var(x)
-        
+
         return x
