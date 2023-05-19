@@ -42,11 +42,11 @@ class MLP(nn.Module):
                     activation = False
                     self.output_mean = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        # nn.Tanh() # => [-1,1]
+                        nn.Tanh() # => [-1,1]
                     )
                     self.output_var = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        # nn.Sigmoid() # => [0, 1]
+                        nn.Sigmoid() # => [0, 1]
                     )
                     
             # define block
