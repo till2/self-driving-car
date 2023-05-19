@@ -8,50 +8,6 @@ from torch import distributions as dist
 
 from .mlp import MLP
 
-# FINISHED EXPERIMENT:
-# What parameter was changed?
-# - higher n_envs
-# was: 1
-# try: 10 (10 is a little bit worse: also 1.4k)
-
-# FINISHED EXPERIMENT:
-# What parameter was changed?
-# - rsample instead of sample
-# was: sample
-# try: rsample (rsample is better: 1.2k but the learning curve does not look as clean)
-
-# FINISHED EXPERIMENT:
-# What parameter was changed?
-# - done instead of terminated (in Notebook)
-# was: terminated
-# try: done (done is better by a lot: 1k)
-
-# FINISHED EXPERIMENT:
-# What parameter was changed?
-# - tanh instead of clip
-# was: clip only
-# try: tanh and then clip (was worse: 1.3k)
-
-# FINISHED EXPERIMENT:
-# What parameter was changed?
-# - RMSProp instead of Adam
-# was: Adam
-# try: RMSProp (was worse: 1.2k)
-
-# FINISHED EXPERIMENT:
-# What parameter was changed?
-# - advantage normalization
-# was: no normalization
-# try: use advantage normalization (was worse: 1.2k)
-
-# RESULTS
-# - rsample
-# - done
-# - clip only
-# - Adam
-# - no normalization
-
-
 # TODO:
 # - integrate into imagination MDP
 # - find good hyperparameters
