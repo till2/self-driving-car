@@ -37,6 +37,10 @@ class RSSM(nn.Module):
         A, H, Z = self.A, self.H, self.Z
         h = h.view(-1, H)
 
+        # convert the action to a tensor
+        if not isinstance(action, torch.Tensor):
+            action = torch.tensor(action, device=h.device).view(1,-1) # (1,A)
+
         # reconstruct the image
         x_reconstruction = self.vae.decode(h, z)
 

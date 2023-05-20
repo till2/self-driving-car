@@ -61,7 +61,7 @@ class ImaginationEnv(gym.Env):
         
         # convert the action to a tensor
         if not isinstance(action, torch.Tensor):
-            action = torch.tensor(action, device=self.device).view(1,-1) # (1,3)
+            action = torch.tensor(action, device=self.device).view(1,-1) # (1,A)
         
         # predict one step using the RSSM
         h_new, reward_pred, continue_prob, continue_pred, x_pred = self.rssm.step(action, self.h, z)

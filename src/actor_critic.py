@@ -9,10 +9,6 @@ from torch import distributions as dist
 
 from .mlp import MLP
 
-# TODO:
-# - integrate into imagination MDP
-# - find good hyperparameters
-
 class ContinuousActorCritic(nn.Module):
     
     def __init__(self, 
