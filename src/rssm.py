@@ -1,16 +1,15 @@
 import os
 from operator import itemgetter
-import numpy as np
 
+import numpy as np
 import torch
+import torch.distributions as dist
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as dist
 
 from .categorical_vae import CategoricalVAE
 from .mlp import MLP
-from .utils import to_np, load_config
-
+from .utils import load_config, to_np
 
 
 class RSSM(nn.Module):

@@ -1,7 +1,7 @@
-import torch
 import numpy as np
-from ruamel.yaml import YAML
+import torch
 from matplotlib import pyplot as plt
+from ruamel.yaml import YAML
 
 
 def to_np(x):

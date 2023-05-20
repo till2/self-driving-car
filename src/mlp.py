@@ -1,7 +1,10 @@
 from operator import itemgetter
+
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import to_np, load_config
+
+from .utils import load_config, to_np
+
 
 class MLP(nn.Module):
     def __init__(self, input_dims, output_dims, out_type="linear"):

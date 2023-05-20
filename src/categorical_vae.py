@@ -1,17 +1,16 @@
 import os
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.distributions import Normal, Categorical
-
 import torchvision
+from torch.distributions import Categorical, Normal
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchvision import transforms
 
-from .blocks import ConvBlock, CategoricalStraightThrough
+from .blocks import CategoricalStraightThrough, ConvBlock
 
 
 class CategoricalVAE(nn.Module):

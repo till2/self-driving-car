@@ -1,18 +1,18 @@
-import torch
-import torch.nn as nn
-import numpy as np
-import torch.nn.functional as F
+import os
+from operator import itemgetter
 
 import gymnasium as gym
-from gymnasium import spaces
-
-import os
-from PIL import Image
 import imageio
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from gymnasium import spaces
+from PIL import Image
 
-from operator import itemgetter
-from .utils import to_np, load_config
 from .preprocessing import grayscale_transform as transform
+from .utils import load_config, to_np
+
 
 class ImaginationEnv(gym.Env):
     """ Custom gymnasium environment for training inside the world model (RSSM). """
