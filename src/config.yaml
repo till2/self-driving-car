@@ -12,19 +12,23 @@ grayscale: True
 toy_env: True
 n_episodes: 5000
 max_episode_steps: 500
+max_imagination_episode_steps: 200
 imagination_timesteps_per_model_update: 500
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
-max_grad_norm: 100
+max_grad_norm: 1
 
 # Model
-batch_size: 8
+batch_size: 1
 H: 512 # discrete h state
 num_categoricals: 32
 num_classes: 32
+buffer_size: 10000
 
 # MLP
 mlp_n_layers: 3
 mlp_hidden_dims: 256
 
-# Actor-Critic
+# RL Agent
+verbose: 0
+imagination_progress_bar: False
 action_clip: 1 # action range: [-action_clip, action_clip]

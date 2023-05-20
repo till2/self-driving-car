@@ -10,13 +10,14 @@ import torch.nn.functional as F
 from gymnasium import spaces
 from PIL import Image
 
+from .replay_buffer import ReplayBuffer
 from .preprocessing import grayscale_transform as transform
 from .utils import load_config, to_np
 
 
 class ImaginationEnv(gym.Env):
     """ Custom gymnasium environment for training inside the world model (RSSM). """
-    def __init__(self, rssm, device, max_episode_steps=50, render_mode=None):
+    def __init__(self, rssm, replay_buffer, device, max_episode_steps=50, render_mode=None):
         super(ImaginationEnv, self).__init__()
         
         config = load_config()
@@ -37,6 +38,9 @@ class ImaginationEnv(gym.Env):
         # set rssm object
         self.device = device
         self.rssm = rssm.to(self.device)
+
+        # set replay buffer object
+        self.replay_buffer = replay_buffer
         
         # save current h and z internally for the next step
         self.h = None
@@ -92,8 +96,7 @@ class ImaginationEnv(gym.Env):
         self.h = torch.zeros(self.rssm.num_rnn_layers, 1, self.H, device=self.device)
         
         # use a random x from the replay buffer
-        initial_observation = np.load("initial_observation.npy") ### TODO: replay buffer
-        x = transform(initial_observation).view(-1, 1, 128, 128).to(self.device) ### TODO: replay buffer
+        x = self.replay_buffer.sample()
 
         z = self.rssm.vae.encode(x)
         
