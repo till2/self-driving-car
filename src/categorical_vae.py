@@ -5,41 +5,39 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torchvision
-from torch.distributions import Categorical, Normal
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torchvision import transforms
 
 from .blocks import CategoricalStraightThrough, ConvBlock
-
+from .utils import load_config
 
 class CategoricalVAE(nn.Module):
-    def __init__(self, features=512+32*32, grayscale=True, entropyloss_coeff=0.0, uniform_ratio=0.01):
+    def __init__(self):
         super(CategoricalVAE, self).__init__()
+        config = load_config()
 
-        if grayscale:
-            self.input_channels = 1
-        else:
-            self.input_channels = 3
-        self.entropyloss_coeff = entropyloss_coeff
-        self.uniform_ratio = uniform_ratio
+        self.input_channels = 1 if config["grayscale"] else 3 # for the encoder
+        self.decoder_start_channels = config["channels"][-1] # for the decoder
+        self.num_categoricals = config["num_categoricals"]
+        self.num_classes = config["num_classes"]
+
+        self.n_features = config["H"] + config["Z"]
+        self.entropyloss_coeff = config["entropyloss_coeff"]
         
-        self.linear = nn.Linear(features, 64*4*4)
+        self.linear = nn.Linear(self.n_features, self.decoder_start_channels*4*4)
         self.encoder = nn.Sequential()
         self.decoder = nn.Sequential()
-        self.categorical = CategoricalStraightThrough(num_classes=32)
+        self.categorical = CategoricalStraightThrough()
 
         # settings
-        kernel_size = 3
-        stride = 2
-        padding = 1
+        kernel_size = config["kernel_size"]
+        stride = config["stride"]
+        padding = config["padding"]
 
         # channels
         input_channels = self.input_channels
-        channels = [32, 64, 128, 256, 64]
+        channels = config["channels"]
 
         print("Initializing encoder:")
-        height, width = 128, 128
+        height, width = config["size"]
         for i, out_channels in enumerate(channels):
             
             height = (height + 2*padding - kernel_size) // stride + 1
@@ -48,19 +46,21 @@ class CategoricalVAE(nn.Module):
             print(f"- adding ConvBlock({input_channels, out_channels}) \
                   ==> output shape: ({out_channels}, {height}, {width}) ==> prod: {out_channels * height * width}")
             conv_block = ConvBlock(input_channels, out_channels, kernel_size, stride, 
-                                   padding, height, width, bias=False)
+                                   padding, height, width)
             self.encoder.add_module(f"conv_block_{i}", conv_block)
             input_channels = out_channels
+        
+        # save the shape of the encoded image
+        self.decoder_start_height, self.decoder_start_width = height, width
         
         # Add linear layer after the encoder
         print(f"- adding Flatten()")
         self.encoder.add_module("flatten", nn.Flatten())
-        print(f"- adding Reshape: (*,{32 * 32}) => (*,32,32)") # reshape in self.encode function
+        print(f"- adding Reshape: (*,{self.num_categoricals * self.num_classes}) => (*,{self.num_categoricals},{self.num_classes})") # reshape in self.encode function
             
         print("\nInitializing decoder:")
-        print(f"- adding Reshape: (*,{32 * 32}) => (*,64,4,4)") # reshape in self.decode function
-        height, width = 4, 4
-        padding=1
+        print(f"- adding Reshape: (*,{self.num_categoricals * self.num_classes}) => (*,{self.decoder_start_channels},{height},{width})") # reshape in self.decode function
+        padding = config["padding"]
         for i, out_channels in enumerate(reversed(channels)):
             
             height = (height - 1)*stride - 2*padding + kernel_size + 1
@@ -73,23 +73,23 @@ class CategoricalVAE(nn.Module):
             print(f"- adding transpose ConvBlock({input_channels}, {out_channels}) \
                   ==> output shape: ({out_channels}, {height}, {width}) ==> prod: {out_channels * height * width}")
             transpose_conv_block = ConvBlock(input_channels, out_channels, kernel_size, stride, 
-                                             padding, height, width, bias=False, transpose_conv=True)
+                                             padding, height, width, transpose_conv=True)
             self.decoder.add_module(f"transpose_conv_block_{i}", transpose_conv_block)
             
             input_channels = out_channels
 
-        self.decoder.add_module("output_activation", nn.Sigmoid())
+        if config["decoder_final_activation"].lower() == "sigmoid":
+            self.decoder.add_module("output_activation", nn.Sigmoid())
 
-
-    def encode(self, x, uniform_ratio=0.01):
-        logits = self.encoder(x).view(-1,32,32)
-        z = self.categorical(logits, uniform_ratio)
+    def encode(self, x):
+        logits = self.encoder(x).view(-1,self.num_categoricals,self.num_classes)
+        z = self.categorical(logits)
         return z
     
     def decode(self, h, z_flat):
         zh = torch.cat((h, z_flat), dim=-1)
-        dec_inp = self.linear(zh).view(-1,64,4,4)
-        x_hat = self.decoder(dec_inp.view(-1,64,4,4))
+        dec_inp = self.linear(zh).view(-1, self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width)
+        x_hat = self.decoder(dec_inp.view(-1, self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width))
         return x_hat
 
     def get_loss(self, x, xhat):
@@ -103,8 +103,7 @@ class CategoricalVAE(nn.Module):
         return loss, reconstruction_loss, entropy_loss
 
     def save_weights(self):
-        if not os.path.exists("weights"):
-            os.mkdir("weights")
+        os.makedirs("weights", exist_ok=True)
         base_path = "weights/CategoricalVAE"
         index = 0
         while os.path.exists(f"{base_path}_{index}"):
@@ -120,30 +119,3 @@ class CategoricalVAE(nn.Module):
     @classmethod
     def get_num_params(self, model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
-    def info(self):
-        """
-        Prints useful information, such as the device, 
-        number of parameters, 
-        input-, hidden- and output shapes. 
-        """
-        title = f"\n| {self.__class__.__name__} info |"
-        print(title)
-        print("-" * len(title))
-
-        if next(self.parameters()).is_cuda:
-            print("device: cuda")
-            batch_tensor_dummy = torch.rand(8, 1, 128, 128).cuda()
-            h_dummy = torch.rand(8, 512).cuda()
-        else:
-            print("device: cpu")
-            batch_tensor_dummy = torch.rand(8, 1, 128, 128).cpu()
-            h_dummy = torch.rand(8, 512).cpu()
-
-        print(f"number of parameters: {self.get_num_params(self):,} (encoder: {self.get_num_params(self.encoder):,}, decoder: {self.get_num_params(self.decoder):,})")
-        print("input shape :", list(batch_tensor_dummy.shape))
-        enc_dummy = self.encode(batch_tensor_dummy).detach()
-        print("hidden shape:", list(enc_dummy.shape))
-        print("output shape:", list(self.decode(h_dummy, enc_dummy.flatten(start_dim=1, end_dim=2)).shape))
-        print("entropyloss_coeff:", self.entropyloss_coeff)
-        print("uniform_ratio:", self.uniform_ratio)
