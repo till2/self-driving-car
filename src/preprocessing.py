@@ -2,13 +2,18 @@ import torch
 import torchvision
 from torchvision import transforms
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from .utils import load_config
+
+config = load_config()
+
+device = config["device"]
+grayscale = config["grayscale"]
 
 grayscale_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Lambda(lambda x: x.to(device)),
     transforms.Resize((128, 128)),
-    transforms.Grayscale(),
+    transforms.Grayscale() if grayscale else transforms.Lambda(lambda x: x),
 ])
 
 # result = preprocess(obs)

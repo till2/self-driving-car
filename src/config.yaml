@@ -4,7 +4,7 @@ logdir: "logs/"
 seed: 0
 device: "cuda:0" # cuda:0 / cpu
 
-# Env
+# Observations
 size: [128, 128]
 grayscale: True
 
@@ -25,7 +25,18 @@ H: 512
 # A is set in the utils file
 num_categoricals: 32
 num_classes: 32
+uniform_ratio: 0.01
 buffer_size: 10000
+activation: "silu"
+
+# Categorical VAE
+channels: [32, 64, 128, 256, 64]
+kernel_size: 3
+stride: 2
+padding: 1
+conv_bias: False
+entropyloss_coeff: 0.0
+
 
 # MLP
 mlp_n_layers: 3
