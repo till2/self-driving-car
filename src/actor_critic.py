@@ -1,4 +1,5 @@
 import os
+from operator import itemgetter
 
 import numpy as np
 import torch
@@ -8,36 +9,35 @@ import torch.optim as optim
 from torch import distributions as dist
 
 from .mlp import MLP
+from .utils import load_config
 
 class ContinuousActorCritic(nn.Module):
     
-    def __init__(self, 
-                 n_features=3, 
-                 n_actions=1,
-                 n_envs=1,
-                 gamma=0.999, 
-                 lam=0.95, # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bias, no variance)
-                 entropy_coeff=0.01, 
-                 critic_lr=0.005,
-                 actor_lr=0.001,
-                 action_clip=1,
-                ):
-        super().__init__()
+    def __init__(self):
+        super().__init__() 
         
+        config = load_config()
+
+        self.n_features = config["H"] + config["Z"]
+        self.n_actions = config["A"]
+
         # hyperparameters
-        self.gamma = gamma
-        self.lam = lam
-        self.entropy_coeff = entropy_coeff
-        self.n_envs = n_envs
-        self.action_clip = action_clip
+        self.gamma = config["gamma"]
+        self.lam = config["lam"]
+        self.entropy_coeff = config["entropy_coeff"]
+        self.n_envs = config["n_envs"]
+        self.action_clip = config["action_clip"]
+        self.critic_lr = config["critic_lr"]
+        self.actor_lr = config["actor_lr"]
+        self.max_grad_norm = config["max_grad_norm"]
 
         # define actor and critic nets
-        self.critic = MLP(input_dims=n_features, output_dims=1, out_type="linear")
-        self.actor = MLP(input_dims=n_features, output_dims=n_actions, out_type="gaussian")
+        self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
+        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian")
         
         # define optimizers for actor and critic
-        self.critic_optim = optim.RMSprop(self.critic.parameters(), lr=critic_lr)
-        self.actor_optim = optim.RMSprop(self.actor.parameters(), lr=actor_lr)
+        self.critic_optim = optim.RMSprop(self.critic.parameters(), lr=self.critic_lr)
+        self.actor_optim = optim.RMSprop(self.actor.parameters(), lr=self.actor_lr)
     
     def get_action(self, x):
         if not isinstance(x, torch.Tensor):
@@ -52,8 +52,8 @@ class ContinuousActorCritic(nn.Module):
         action = torch.clip(action, -self.action_clip, self.action_clip)
         
         log_prob = action_pd.log_prob(action)
-
         actor_entropy = action_pd.entropy()
+
         return action, log_prob, actor_entropy
     
     def get_loss(
@@ -80,7 +80,7 @@ class ContinuousActorCritic(nn.Module):
         # calculate advantages using GAE
         for t in reversed(range(len(ep_rewards))):
             returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
-            td_error = returns[t] -  ep_value_preds[t]
+            td_error = returns[t] - ep_value_preds[t]
             advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
 
         # calculate the critic loss
@@ -97,10 +97,10 @@ class ContinuousActorCritic(nn.Module):
 
         self.critic_optim.zero_grad()
         critic_loss.backward()
-        nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0, norm_type=2)
+        nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=self.max_grad_norm, norm_type=2)
         self.critic_optim.step()
 
         self.actor_optim.zero_grad()
         actor_loss.backward()
-        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0, norm_type=2)
+        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm, norm_type=2)
         self.actor_optim.step()

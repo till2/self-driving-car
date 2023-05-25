@@ -10,6 +10,7 @@ grayscale: True
 
 # Training
 toy_env: True
+n_envs: 1
 n_episodes: 5000
 max_episode_steps: 500
 max_imagination_episode_steps: 200
@@ -19,7 +20,9 @@ max_grad_norm: 1
 
 # Model
 batch_size: 1
-H: 512 # discrete h state
+H: 512
+# Z is set in the utils file
+# A is set in the utils file
 num_categoricals: 32
 num_classes: 32
 buffer_size: 10000
@@ -29,6 +32,11 @@ mlp_n_layers: 3
 mlp_hidden_dims: 256
 
 # RL Agent
+gamma: 0.999
+lam: 0.95 # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bias, no variance)
+entropy_coeff: 0.01
+critic_lr: 0.005
+actor_lr: 0.001
 verbose: 0
 imagination_progress_bar: False
-action_clip: 1 # action range: [-action_clip, action_clip]
+action_clip: 0.5 # action range: [-action_clip, action_clip]
