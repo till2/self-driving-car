@@ -15,23 +15,24 @@ class ReplayBuffer():
     def __init__(self):
 
         config = load_config()
-        self.buffer_size = itemgetter("buffer_size")(config)
-        self.device = itemgetter("device")(config)
+        self.buffer_size = config["buffer_size"]
+        self.store_on_cpu = config["store_on_cpu"]
+        self.device = config["device"]
         self.buffer = deque(maxlen=self.buffer_size)
 
     def push(self, observation):
 
         # move buffer objects to cpu to avoid GPU running full
-        if isinstance(observation, torch.Tensor):
+        if self.store_on_cpu and isinstance(observation, torch.Tensor):
             observation = observation.cpu()
-
+            
         self.buffer.append(observation)
 
     def sample(self):
         observation = random.choice(self.buffer)
 
         # move buffer object to original device (probably GPU)
-        if isinstance(observation, torch.Tensor):
+        if self.store_on_cpu and isinstance(observation, torch.Tensor):
             observation = observation.to(self.device)
 
         return observation

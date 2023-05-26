@@ -35,7 +35,7 @@ class ConvBlock(nn.Module):
         if config["activation"].lower() == "silu":
             self.activation = nn.SiLU(inplace=True)
         elif config["activation"].lower() == "elu":
-            self.activation = nn.SiLU(inplace=True)
+            self.activation = nn.ELU(inplace=True)
         else:
             self.activation = nn.ReLU(inplace=True)
         

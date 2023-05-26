@@ -34,20 +34,28 @@ def load_config():
 
 def save_image_and_reconstruction(x, x_pred, episode):
 
-    original_image = to_np(x[0][0])
-    reconstructed_image = to_np(x_pred[0][0])
+    config = load_config()
+
+    # imshow expects channels at the last dim
+    original_image = to_np(x.permute(1,2,0))
+    reconstructed_image = to_np(x_pred.permute(1,2,0))
 
     # Create a figure and axes
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
     # Plot original image on the left side
-    axes[0].imshow(original_image, cmap="gray")
+    cmap = "gray" if config["grayscale"] else None
+    axes[0].imshow(original_image, cmap=cmap)
     axes[0].set_title("Original Image")
+    axes[0].set_xticks([])
+    axes[0].set_yticks([])
 
     # Plot reconstructed image on the right side
-    axes[1].imshow(reconstructed_image, cmap="gray")
+    axes[1].imshow(reconstructed_image, cmap=cmap)
     axes[1].set_title("Reconstructed Image")
+    axes[1].set_xticks([])
+    axes[1].set_yticks([])
 
-    plt.tight_layout()
+    fig.tight_layout(pad=2.0)
     plt.savefig(f"reconstructions/episode_{episode}_comparison.png")
     plt.close(fig)

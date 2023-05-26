@@ -17,32 +17,33 @@ from .utils import load_config, to_np
 
 class ImaginationEnv(gym.Env):
     """ Custom gymnasium environment for training inside the world model (RSSM). """
-    def __init__(self, rssm, replay_buffer, device, max_episode_steps=50, render_mode=None):
+    def __init__(self, rssm, replay_buffer, render_mode=None):
         super(ImaginationEnv, self).__init__()
         
         config = load_config()
 
-        self.action_clip = itemgetter("action_clip")(config)
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
-        self.num_categoricals, self.num_classes= itemgetter("num_categoricals", "num_classes")(config)
-        
+        self.num_categoricals = config["num_categoricals"]
+        self.num_classes = config["num_classes"]
+        self.action_clip = config["action_clip"]
+        self.max_imagination_episode_steps = config["max_imagination_episode_steps"]
+        self.device = config["device"]
+
         # define action and observation space
         # they must be gym.spaces objects
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.H+self.Z,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.H + self.Z,), dtype=np.float32)
         self.action_space = spaces.Box(low=-self.action_clip, high=self.action_clip, shape=(self.A,), dtype=np.float32)
         
-        # set counter for truncation
-        self.max_episode_steps = max_episode_steps
+        # set a counter for truncation
         self.step_counter = 0
         
-        # set rssm object
-        self.device = device
+        # set the rssm object
         self.rssm = rssm.to(self.device)
 
-        # set replay buffer object
+        # set the replay buffer object
         self.replay_buffer = replay_buffer
         
-        # save current h and z internally for the next step
+        # save the current h internally for the next step
         self.h = None
         
         # save images (optional)
@@ -56,7 +57,7 @@ class ImaginationEnv(gym.Env):
         
         # check whether the episode is too long and should be truncated
         self.step_counter += 1
-        truncated = True if self.step_counter >= self.max_episode_steps else False
+        truncated = True if self.step_counter >= self.max_imagination_episode_steps else False
         
         # predict z from h
         z_prior = self.rssm.dynamics_mlp(self.h).view(-1, self.num_categoricals, self.num_classes) # (1,32,32) for the softmax
@@ -65,7 +66,7 @@ class ImaginationEnv(gym.Env):
         
         # convert the action to a tensor
         if not isinstance(action, torch.Tensor):
-            action = torch.tensor(action, device=self.device).view(1,-1) # (1,A)
+            action = torch.tensor(action, device=self.device).view(1, self.A) # (1,A)
         
         # predict one step using the RSSM
         h_new, reward_pred, continue_prob, continue_pred, x_pred = self.rssm.step(action, self.h, z)
@@ -82,7 +83,7 @@ class ImaginationEnv(gym.Env):
         
         # save reconstructed image (optional)
         if self.render_mode in ["rgb_array", "gif"]:
-            self.images.append((255 * to_np(x_pred[0][0])).astype("uint8"))
+            self.images.append((255 * to_np(x_pred.permute(1,2,0))).astype("uint8"))
         
         info = {}
         return observation, reward, terminated, truncated, info
@@ -98,13 +99,13 @@ class ImaginationEnv(gym.Env):
         # use a random x from the replay buffer
         x = self.replay_buffer.sample()
 
+        # reset list of saved images
+        if self.render_mode in ["rgb_array", "gif"]:
+            self.images = [(255 * to_np(x.permute(1,2,0))).astype("uint8")]
+
         z = self.rssm.vae.encode(x)
         
         observation = to_np(torch.cat((self.h.flatten(), z.flatten()), dim=0))
-        
-        # reset saved images
-        if self.render_mode in ["rgb_array", "gif"]:
-            self.images = [255 * to_np(x[0][0]).astype("uint8")]
             
         info = {}
         return observation, info
@@ -115,7 +116,7 @@ class ImaginationEnv(gym.Env):
             return self.images[-1]
         
         # save gif at last step of an episode
-        if self.render_mode == "gif" and self.step_counter == self.max_episode_steps:
+        if self.render_mode == "gif" and self.step_counter == self.max_imagination_episode_steps:
             base_path = "reconstructions/imagined_episodes/imagination_ep"
             index = 0
             while os.path.exists(f"{base_path}_{index}.gif"):

@@ -13,10 +13,10 @@ class MLP(nn.Module):
         config = load_config()
         
         self.input_dims = input_dims
-        self.hidden_dims = itemgetter("mlp_hidden_dims")(config)
+        self.hidden_dims = config["mlp_hidden_dims"]
         self.output_dims = output_dims
         
-        self.n_layers = itemgetter("mlp_n_layers")(config)
+        self.n_layers = config["mlp_n_layers"]
         self.layers = nn.Sequential()
         self.out_type = out_type
         
@@ -45,17 +45,24 @@ class MLP(nn.Module):
                     activation = False
                     self.output_mean = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        nn.Tanh() # => [-1,1]
+                        nn.Tanh() # => constrain mean to [-1,1]
                     )
                     self.output_var = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        nn.Sigmoid() # => [0, 1]
+                        nn.Sigmoid() # => constrain variance to [0, 1]
                     )
                     
             # define block
             linear = nn.Linear(layer_in, layer_out)
             norm = nn.LayerNorm(layer_out)
-            activation = nn.SiLU(inplace=True) if activation is None else activation
+
+            # activation
+            if config["activation"].lower() == "silu":
+                activation = nn.SiLU(inplace=True) if activation is None else activation
+            elif config["activation"].lower() == "elu":
+                activation = nn.ELU(inplace=True) if activation is None else activation
+            else:
+                activation = nn.ReLU(inplace=True) if activation is None else activation
             
             # add layer to the network
             if i == self.n_layers - 1 and out_type == "gaussian":
@@ -80,5 +87,4 @@ class MLP(nn.Module):
         x = self.layers(x)
         if self.out_type == "gaussian":
             return self.output_mean(x), self.output_var(x)
-
         return x

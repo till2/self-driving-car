@@ -6,14 +6,14 @@ device: "cuda:0" # "cuda:0" / "cpu"
 
 # Observations
 size: [128, 128]
-grayscale: True
+grayscale: False
 
 # Training
 toy_env: True
 n_envs: 1
 n_episodes: 5000
 max_episode_steps: 500
-max_imagination_episode_steps: 200
+max_imagination_episode_steps: 30
 imagination_timesteps_per_model_update: 500
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 max_grad_norm: 1
@@ -48,6 +48,9 @@ num_rnn_layers: 1
 # MLP
 mlp_n_layers: 3
 mlp_hidden_dims: 256
+
+# Replay Buffer
+store_on_cpu: True
 
 # RL Agent
 gamma: 0.999
