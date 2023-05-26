@@ -5,7 +5,7 @@ seed: 0
 device: "cuda:0" # "cuda:0" / "cpu"
 
 # Donkey Car Simulator
-toy_env: True
+toy_env: False
 exe_path: "/home/till/Desktop/Thesis/donkeycar_sim/DonkeySimLinux/donkey_sim.x86_64"
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 port: 9091
@@ -17,12 +17,14 @@ grayscale: False
 # Training
 n_envs: 1
 n_episodes: 5000
-max_episode_steps: 500
-max_imagination_episode_steps: 30
-imagination_timesteps_per_model_update: 500
+max_episode_steps: 2000
+max_imagination_episode_steps: 50
+imagination_timesteps_per_model_update: 100
 max_grad_norm: 1
 
-# Model
+# RSSM
+rssm_lr: 1e-4
+rssm_l2_regularization: 1e-6
 batch_size: 1
 H: 512
 # Z is set in the utils file
@@ -60,8 +62,8 @@ store_on_cpu: True
 gamma: 0.999
 lam: 0.95 # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bias, no variance)
 entropy_coeff: 0.01
-critic_lr: 0.005
-actor_lr: 0.001
+critic_lr: 5e-3
+actor_lr: 1e-3
 verbose: 0
 imagination_progress_bar: False
-action_clip: 0.5 # action range: [-action_clip, action_clip]
+action_clip: 0.5 # action range: [-action_clip, +action_clip]

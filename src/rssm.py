@@ -6,6 +6,7 @@ import torch
 import torch.distributions as dist
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 
 from .categorical_vae import CategoricalVAE
 from .mlp import MLP
@@ -38,6 +39,11 @@ class RSSM(nn.Module):
         self.dynamics_mlp = MLP(input_dims=self.H, output_dims=self.Z) # H -> Z
         self.reward_mlp = MLP(input_dims=self.H + self.Z, output_dims=1) # state (H+Z) -> 1
         self.continue_mlp = MLP(input_dims=self.H + self.Z, output_dims=1, out_type="sigmoid") # state (H+Z)->1 into bernoulli
+
+        # init the optimizer
+        self.rssm_lr = config["rssm_lr"]
+        self.rssm_l2_regularization = config["rssm_l2_regularization"]
+        self.optim = optim.Adam(self.parameters(), lr=self.rssm_lr, weight_decay=self.rssm_l2_regularization)
     
     def step(self, action, h, z):
         h = h.view(-1, self.H)
