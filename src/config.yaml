@@ -1,21 +1,25 @@
 # Setup
 debug: False
-logdir: "logs/"
+log_dir: "logs/"
 seed: 0
 device: "cuda:0" # "cuda:0" / "cpu"
+
+# Donkey Car Simulator
+toy_env: True
+exe_path: "/home/till/Desktop/Thesis/donkeycar_sim/DonkeySimLinux/donkey_sim.x86_64"
+env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
+port: 9091
 
 # Observations
 size: [128, 128]
 grayscale: False
 
 # Training
-toy_env: True
 n_envs: 1
 n_episodes: 5000
 max_episode_steps: 500
 max_imagination_episode_steps: 30
 imagination_timesteps_per_model_update: 500
-env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 max_grad_norm: 1
 
 # Model

@@ -83,7 +83,11 @@ class ImaginationEnv(gym.Env):
         
         # save reconstructed image (optional)
         if self.render_mode in ["rgb_array", "gif"]:
-            self.images.append((255 * to_np(x_pred.permute(1,2,0))).astype("uint8"))
+            if len(x_pred.shape) == 4:
+                img = (255 * to_np(x_pred[0].permute(1,2,0))).astype("uint8")
+            else:
+                img = (255 * to_np(x_pred.permute(1,2,0))).astype("uint8")    
+            self.images.append(img)
         
         info = {}
         return observation, reward, terminated, truncated, info
@@ -99,9 +103,14 @@ class ImaginationEnv(gym.Env):
         # use a random x from the replay buffer
         x = self.replay_buffer.sample()
 
-        # reset list of saved images
+        # reset list of saved images (and take the first image if the input is a batch)
+
         if self.render_mode in ["rgb_array", "gif"]:
-            self.images = [(255 * to_np(x.permute(1,2,0))).astype("uint8")]
+            if len(x.shape) == 4:
+                img = (255 * to_np(x[0].permute(1,2,0))).astype("uint8")
+            else:
+                img = (255 * to_np(x.permute(1,2,0))).astype("uint8")
+            self.images = [img]
 
         z = self.rssm.vae.encode(x)
         

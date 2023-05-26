@@ -36,6 +36,12 @@ def save_image_and_reconstruction(x, x_pred, episode):
 
     config = load_config()
 
+    # take the first image if the input is a batch
+    if len(x.shape) == 4:
+        x = x[0]
+    if len(x_pred.shape) == 4:
+        x_pred = x_pred[0]
+
     # imshow expects channels at the last dim
     original_image = to_np(x.permute(1,2,0))
     reconstructed_image = to_np(x_pred.permute(1,2,0))

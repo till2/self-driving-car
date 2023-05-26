@@ -22,7 +22,6 @@ class CategoricalVAE(nn.Module):
         self.n_features = config["H"] + config["Z"]
         self.entropyloss_coeff = config["entropyloss_coeff"]
         
-        self.linear = nn.Linear(self.n_features, self.decoder_start_channels*4*4)
         self.encoder = nn.Sequential()
         self.decoder = nn.Sequential()
         self.categorical = CategoricalStraightThrough()
@@ -52,6 +51,7 @@ class CategoricalVAE(nn.Module):
         
         # save the shape of the encoded image
         self.decoder_start_height, self.decoder_start_width = height, width
+        self.linear = nn.Linear(self.n_features, self.decoder_start_channels * height * width)
         
         # Add linear layer after the encoder
         print(f"- adding Flatten()")
