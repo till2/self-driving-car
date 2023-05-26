@@ -16,8 +16,9 @@ grayscale: False
 
 # Training
 n_envs: 1
-n_episodes: 5000
-max_episode_steps: 2000
+n_seed_episodes: 1000
+n_training_episodes: 5000
+max_episode_steps: 1000 # 1000 steps => about 20 GB with a 20M-parameters model
 max_imagination_episode_steps: 50
 imagination_timesteps_per_model_update: 100
 max_grad_norm: 1
@@ -30,13 +31,16 @@ H: 512
 # Z is set in the utils file
 # A is set in the utils file
 uniform_ratio: 0.01
-buffer_size: 10000
+buffer_size: 50_000
 activation: "silu" # "silu", "elu", "relu"
 
 # Categorical VAE
 num_categoricals: 32
 num_classes: 32
-channels: [32, 64, 128, 256, 256, 256] # [32, 64, 128, 256, 64] for 4x4
+channels: [64, 128, 256, 512, 512, 256]
+
+# [32, 64, 128, 256, 256, 256] für 2x2
+# [32, 64, 128, 256, 64] for 4x4
 kernel_size: 3
 stride: 2
 padding: 1

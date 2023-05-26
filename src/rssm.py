@@ -103,13 +103,16 @@ class RSSM(nn.Module):
         return {"loss": loss, "image_loss": image_loss, "reward_loss": reward_loss, 
                 "continue_loss": continue_loss, "dyn_loss": dyn_loss, "rep_loss": rep_loss}
     
-    def save_weights(self):
+    def save_weights(self, filename):
         os.makedirs("weights", exist_ok=True)
-        base_path = "weights/RSSM"
-        index = 0
-        while os.path.exists(f"{base_path}_{index}"):
-            index += 1
-        torch.save(self.state_dict(), f"{base_path}_{index}")
+        if filename:
+            torch.save(self.state_dict(), f"weights/{filename}")
+        else:
+            base_path = "weights/RSSM"
+            index = 0
+            while os.path.exists(f"{base_path}_{index}"):
+                index += 1
+            torch.save(self.state_dict(), f"{base_path}_{index}")
 
     def load_weights(self, path="weights/RSSM", eval_mode=True):
         self.load_state_dict(torch.load(path))
