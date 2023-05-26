@@ -15,31 +15,36 @@ from .utils import load_config, to_np
 class RSSM(nn.Module):
     def __init__(self):
         super(RSSM, self).__init__()
-
         config = load_config()
+
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
-        self.num_categoricals, self.num_classes = itemgetter("num_categoricals", "num_classes")(config)
-        A, H, Z = self.A, self.H, self.Z
+        self.num_categoricals = config["num_categoricals"]
+        self.num_classes = config["num_classes"]
+
+        # loss hyperparameters
+        self.pred_loss_coeff = config["pred_loss_coeff"]
+        self.dyn_loss_coeff = config["dyn_loss_coeff"]
+        self.rep_loss_coeff = config["rep_loss_coeff"]
+        self.free_nats = config["free_nats"]
 
         # init the VAE
-        self.vae = CategoricalVAE(features=H+Z)
+        self.vae = CategoricalVAE()
         
         # init the RNN
-        self.num_rnn_layers = 1
-        self.rnn = nn.GRU(input_size=A+H+Z, hidden_size=H, num_layers=self.num_rnn_layers)
+        self.num_rnn_layers = config["num_rnn_layers"]
+        self.rnn = nn.GRU(input_size=self.A + self.H + self.Z, hidden_size=self.H, num_layers=self.num_rnn_layers)
         
         # init MLPs
-        self.dynamics_mlp = MLP(input_dims=H, output_dims=Z) # H -> Z
-        self.reward_mlp = MLP(input_dims=H+Z, output_dims=1) # state (H+Z) -> 1
-        self.continue_mlp = MLP(input_dims=H+Z, output_dims=1, out_type="sigmoid") # state (H+Z)->1 # add sigmoid and BinaryCE  
+        self.dynamics_mlp = MLP(input_dims=self.H, output_dims=self.Z) # H -> Z
+        self.reward_mlp = MLP(input_dims=self.H + self.Z, output_dims=1) # state (H+Z) -> 1
+        self.continue_mlp = MLP(input_dims=self.H + self.Z, output_dims=1, out_type="sigmoid") # state (H+Z)->1 into bernoulli
     
     def step(self, action, h, z):
-        A, H, Z = self.A, self.H, self.Z
-        h = h.view(-1, H)
+        h = h.view(-1, self.H)
 
         # convert the action to a tensor
         if not isinstance(action, torch.Tensor):
-            action = torch.tensor(action, device=h.device).view(1,-1) # (1,A)
+            action = torch.tensor(action, device=h.device).view(1, self.A) # (1,A)
 
         # reconstruct the image
         x_reconstruction = self.vae.decode(h, z)
@@ -81,20 +86,19 @@ class RSSM(nn.Module):
         dist_z_sg = dist.OneHotCategorical(probs=z.detach().view(-1, self.num_categoricals, self.num_classes))
         dist_z_pred_sg = dist.OneHotCategorical(probs=z_pred.detach().view(-1, self.num_categoricals, self.num_classes))
 
-        # calculate the mean KL-divergence across the categoricals
-        
-        dyn_loss = torch.max(torch.tensor(1), torch.mean(kld(dist_z_sg, dist_z_pred)))
-        rep_loss = torch.max(torch.tensor(1), torch.mean(kld(dist_z, dist_z_pred_sg)))
+        # calculate the mean KL-divergence across the categoricals (and apply the "free bits" method)
+        dyn_loss = torch.max(torch.tensor(self.free_nats), torch.mean(kld(dist_z_sg, dist_z_pred)))
+        rep_loss = torch.max(torch.tensor(self.free_nats), torch.mean(kld(dist_z, dist_z_pred_sg)))
      
         # calculate the combined loss
-        loss = 1.0 * (image_loss + reward_loss + continue_loss) + 0.5 * dyn_loss + 0.1 * rep_loss
+        loss = self.pred_loss_coeff * (image_loss + reward_loss + continue_loss) + \
+                self.dyn_loss_coeff * dyn_loss + self.rep_loss_coeff * rep_loss
         
         return {"loss": loss, "image_loss": image_loss, "reward_loss": reward_loss, 
                 "continue_loss": continue_loss, "dyn_loss": dyn_loss, "rep_loss": rep_loss}
     
     def save_weights(self):
-        if not os.path.exists("weights"):
-            os.mkdir("weights")
+        os.makedirs("weights", exist_ok=True)
         base_path = "weights/RSSM"
         index = 0
         while os.path.exists(f"{base_path}_{index}"):

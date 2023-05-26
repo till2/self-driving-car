@@ -7,6 +7,7 @@ from ruamel.yaml import YAML
 def to_np(x):
     return x.detach().cpu().numpy() 
 
+
 def load_config():
     yaml = YAML(typ='safe')
     with open("./src/config.yaml", "r") as file:
