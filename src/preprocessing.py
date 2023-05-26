@@ -8,11 +8,12 @@ config = load_config()
 
 device = config["device"]
 grayscale = config["grayscale"]
+height, width = config["size"]
 
 grayscale_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Lambda(lambda x: x.to(device)),
-    transforms.Resize((128, 128)),
+    transforms.Resize((height, width)),
     transforms.Grayscale() if grayscale else transforms.Lambda(lambda x: x),
 ])
 

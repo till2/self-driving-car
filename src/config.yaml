@@ -11,7 +11,7 @@ env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 port: 9091
 
 # Observations
-size: [128, 128]
+size: [64, 64] # [128, 128]
 grayscale: False
 
 # Training
@@ -21,7 +21,7 @@ n_training_episodes: 5000
 max_episode_steps: 1000 # 1000 steps => about 20 GB with a 20M-parameters model
 max_imagination_episode_steps: 50
 imagination_timesteps_per_model_update: 100
-max_grad_norm: 1
+max_grad_norm: 10
 
 # RSSM
 rssm_lr: 1e-4
@@ -37,10 +37,11 @@ activation: "silu" # "silu", "elu", "relu"
 # Categorical VAE
 num_categoricals: 32
 num_classes: 32
-channels: [64, 128, 256, 512, 512, 256]
+channels: [64, 128, 256, 512, 256] # für 2x2 bei shape [64, 64]
 
-# [32, 64, 128, 256, 256, 256] für 2x2
-# [32, 64, 128, 256, 64] for 4x4
+# [32, 64, 128, 256, 256, 256] für 2x2 bei shape [128, 128]
+# [32, 64, 128, 256, 64] for 4x4 bei shape [128, 128]
+
 kernel_size: 3
 stride: 2
 padding: 1
