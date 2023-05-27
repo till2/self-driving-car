@@ -54,6 +54,9 @@ class ImaginationEnv(gym.Env):
             self.images = []
     
     def step(self, action):
+
+        if self.h is None:
+            raise Exception("Missing h: Forgot to call env.reset()")
         
         # check whether the episode is too long and should be truncated
         self.step_counter += 1

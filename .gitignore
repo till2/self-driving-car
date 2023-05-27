@@ -154,6 +154,7 @@ cython_debug/
 gym-donkeycar/
 reconstructions/
 weights/
+report_images/
 
 # TensorBoard logs
 logs/

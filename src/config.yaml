@@ -16,12 +16,13 @@ grayscale: False
 
 # Training
 n_envs: 1
+start_episode: 1000 # if starting from a pretrained rssm (to skip the seed episodes)
 n_seed_episodes: 1000
 n_training_episodes: 5000
 max_episode_steps: 1000 # 1000 steps => about 20 GB with a 20M-parameters model
-max_imagination_episode_steps: 50
-imagination_timesteps_per_model_update: 100
-max_grad_norm: 10
+max_imagination_episode_steps: 15
+imagination_timesteps_per_model_update: 200
+max_grad_norm: 1
 
 # RSSM
 rssm_lr: 1e-4
@@ -64,11 +65,11 @@ mlp_hidden_dims: 256
 store_on_cpu: True
 
 # RL Agent
-gamma: 0.999
+gamma: 0.997
 lam: 0.95 # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bias, no variance)
-entropy_coeff: 0.01
-critic_lr: 5e-3
-actor_lr: 1e-3
-verbose: 0
-imagination_progress_bar: False
+ent_coef: 0.01
+#critic_lr: 5e-3
+#actor_lr: 1e-3
+verbose: 1
+imagination_progress_bar: True
 action_clip: 0.5 # action range: [-action_clip, +action_clip]
