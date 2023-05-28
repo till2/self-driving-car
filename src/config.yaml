@@ -1,14 +1,19 @@
 # Setup
 debug: False
+show_inline_tensorboard: False 
 log_dir: "logs/"
 seed: 0
-device: "cuda:0" # "cuda:0" / "cpu"
+device: "cuda:0" # "cuda:0" | "cpu"
 
 # Donkey Car Simulator
 toy_env: False
 exe_path: "/home/till/Desktop/Thesis/donkeycar_sim/DonkeySimLinux/donkey_sim.x86_64"
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 port: 9091
+body_style: "f1" # "donkey" | "bare" | "car01" | "f1" | "cybertruck"
+body_rgb: [255, 255, 255]
+car_name: "RL-Racer"
+font_size: 30
 
 # Observations
 size: [64, 64] # [128, 128]
@@ -48,7 +53,7 @@ stride: 2
 padding: 1
 conv_bias: False
 entropyloss_coeff: 0.0
-decoder_final_activation: "sigmoid" # "sigmoid"/ None
+decoder_final_activation: "sigmoid" # "sigmoid" | None
 
 # RSSM
 pred_loss_coeff: 1.0
