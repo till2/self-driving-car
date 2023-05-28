@@ -10,6 +10,8 @@ toy_env: False
 exe_path: "/home/till/Desktop/Thesis/donkeycar_sim/DonkeySimLinux/donkey_sim.x86_64"
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 port: 9091
+frame_skip: 2
+max_cte: 4.0
 body_style: "f1" # "donkey" | "bare" | "car01" | "f1" | "cybertruck"
 body_rgb: [255, 255, 255]
 car_name: "RL-Racer"
