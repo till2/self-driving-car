@@ -151,7 +151,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 *.txt
-gym-donkeycar/
 reconstructions/
 weights/
 report_images/
@@ -160,3 +159,4 @@ report_images/
 logs/
 runs/
 baseline_weights/
+TwoHotEncoding.ipynb

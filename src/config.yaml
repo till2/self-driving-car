@@ -6,7 +6,6 @@ seed: 0
 device: "cuda:0" # "cuda:0" | "cpu"
 
 # Donkey Car Simulator
-toy_env: False
 exe_path: "/home/till/Desktop/Thesis/donkeycar_sim/DonkeySimLinux/donkey_sim.x86_64"
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 port: 9091
@@ -17,12 +16,16 @@ body_rgb: [255, 255, 255]
 car_name: "RL-Racer"
 font_size: 30
 
+# Vectorized Envs
+toy_env: False
+vectorized: True
+n_envs: 2
+
 # Observations
 size: [64, 64] # [128, 128]
 grayscale: False
 
 # Training
-n_envs: 1
 start_episode: 1000 # if starting from a pretrained rssm (to skip the seed episodes)
 n_seed_episodes: 1000
 n_training_episodes: 5000

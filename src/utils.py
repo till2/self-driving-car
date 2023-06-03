@@ -3,6 +3,11 @@ import torch
 from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
 
+import logging
+import gymnasium as gym
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.monitor import Monitor
+
 
 def to_np(x):
     return x.detach().cpu().numpy() 
@@ -65,3 +70,59 @@ def save_image_and_reconstruction(x, x_pred, episode):
     fig.tight_layout(pad=2.0)
     plt.savefig(f"reconstructions/episode_{episode}_comparison.png")
     plt.close(fig)
+
+def make_env():
+
+    config = load_config()
+    
+    if config["toy_env"]:
+        print("Making a toy env.")
+        make_one_env = lambda: gym.make(
+            "CarRacing-v2", 
+            max_episode_steps=config["max_episode_steps"], 
+            render_mode="rgb_array"
+        )
+
+    else:
+        print("Making a real sim env.")
+        
+        sim_config = {
+            # sim: fixed settings
+            "exe_path": config["exe_path"],
+            "port": config["port"],
+            "host": "localhost",
+            "log_level": logging.INFO,
+            "start_delay": 3.0,
+            "cam_resolution": (120, 160, 3),
+
+            # sim: hyperparameters
+            "max_cte": config["max_cte"],
+            "frame_skip": config["frame_skip"],
+            "steer_limit": config["action_clip"],
+            "throttle_min": 0.0,
+            "throttle_max": 0.3,
+
+            # sim: cosmetics
+            "body_style": config["body_style"],
+            "body_rgb": config["body_rgb"],
+            "car_name": config["car_name"],
+            "font_size": config["font_size"],
+        }
+
+        make_one_env = lambda: gym.make(
+            "GymV21Environment-v0", 
+            env_id=config["env_id"],
+            max_episode_steps=config["max_episode_steps"],
+            make_kwargs={
+                "conf": sim_config
+            })
+    
+    if config["vectorized"]:
+        n_envs = config["n_envs"]
+        print(f"Making {n_envs} vectorized envs.")
+        env = DummyVecEnv([lambda: Monitor(make_one_env())] * config["n_envs"])
+    else:
+        print("Making a non-vectorized env.")
+        env = make_one_env()
+
+    return env
