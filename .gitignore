@@ -160,3 +160,4 @@ logs/
 runs/
 baseline_weights/
 TwoHotEncoding.ipynb
+gym-donkeycar/

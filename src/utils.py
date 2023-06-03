@@ -71,6 +71,7 @@ def save_image_and_reconstruction(x, x_pred, episode):
     plt.savefig(f"reconstructions/episode_{episode}_comparison.png")
     plt.close(fig)
 
+
 def make_env():
 
     config = load_config()
@@ -84,15 +85,15 @@ def make_env():
         )
 
     else:
-        print("Making a real sim env.")
-        
+        print("Making a donkey sim env.")
+
         sim_config = {
             # sim: fixed settings
             "exe_path": config["exe_path"],
             "port": config["port"],
             "host": "localhost",
             "log_level": logging.INFO,
-            "start_delay": 3.0,
+            "start_delay": 5.0,
             "cam_resolution": (120, 160, 3),
 
             # sim: hyperparameters
@@ -120,7 +121,7 @@ def make_env():
     if config["vectorized"]:
         n_envs = config["n_envs"]
         print(f"Making {n_envs} vectorized envs.")
-        env = DummyVecEnv([lambda: Monitor(make_one_env())] * config["n_envs"])
+        env = DummyVecEnv([lambda: Monitor(make_one_env())] * n_envs)
     else:
         print("Making a non-vectorized env.")
         env = make_one_env()
