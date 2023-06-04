@@ -80,7 +80,7 @@ def make_env():
         print("Making a toy env.")
         make_one_env = lambda: gym.make(
             "CarRacing-v2", 
-            max_episode_steps=config["max_episode_steps"], 
+            # max_episode_steps=config["max_episode_steps"], 
             render_mode="rgb_array"
         )
 
@@ -113,7 +113,7 @@ def make_env():
         make_one_env = lambda: gym.make(
             "GymV21Environment-v0", 
             env_id=config["env_id"],
-            max_episode_steps=config["max_episode_steps"],
+            # max_episode_steps=config["max_episode_steps"],
             make_kwargs={
                 "conf": sim_config
             })
@@ -127,11 +127,23 @@ def make_env():
             env = DummyVecEnv([lambda: Monitor(make_one_env())] * n_envs)
         else:
             print("Wrapping the env in a Gymnasium wrapper to record episode statistics.")
-            env = gym.wrappers.RecordEpisodeStatistics(make_one_env(), deque_size=config["n_envs"] * config["n_updates"])
+            env = gym.wrappers.RecordEpisodeStatistics(
+                make_one_env(), 
+                deque_size=config["n_envs"] * config["n_updates"],
+            )
         
     else:
         print("Making a non-vectorized env.")
         print("Wrapping the env in a Gymnasium wrapper to record episode statistics.")
-        env = gym.wrappers.RecordEpisodeStatistics(make_one_env(), deque_size=config["n_envs"] * config["n_updates"])
+        env = gym.wrappers.RecordEpisodeStatistics(
+            make_one_env(), 
+            deque_size=config["n_updates"],
+        )
+    
+    print("Adding a time limit wrapper with %d max episode steps." % config["max_episode_steps"])
+    env = gym.wrappers.TimeLimit(env, max_episode_steps=config["max_episode_steps"])
+
+    print("Adding an AutoReset wrapper.")
+    env = gym.wrappers.AutoResetWrapper(env)
 
     return env
