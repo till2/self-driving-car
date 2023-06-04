@@ -120,10 +120,18 @@ def make_env():
     
     if config["vectorized"]:
         n_envs = config["n_envs"]
+
         print(f"Making {n_envs} vectorized envs.")
-        env = DummyVecEnv([lambda: Monitor(make_one_env())] * n_envs)
+        if config["sb3_monitor"]:
+            print("Wrapping the env in a SB3 Monitor wrapper to record episode statistics.")
+            env = DummyVecEnv([lambda: Monitor(make_one_env())] * n_envs)
+        else:
+            print("Wrapping the env in a Gymnasium wrapper to record episode statistics.")
+            env = gym.wrappers.RecordEpisodeStatistics(make_one_env(), deque_size=config["n_envs"] * config["n_updates"])
+        
     else:
         print("Making a non-vectorized env.")
-        env = make_one_env()
+        print("Wrapping the env in a Gymnasium wrapper to record episode statistics.")
+        env = gym.wrappers.RecordEpisodeStatistics(make_one_env(), deque_size=config["n_envs"] * config["n_updates"])
 
     return env

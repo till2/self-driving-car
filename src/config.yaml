@@ -17,9 +17,10 @@ car_name: "RL-Racer"
 font_size: 30
 
 # Vectorized Envs
-toy_env: False
+sb3_monitor: False
+toy_env: True
 vectorized: True
-n_envs: 2
+n_envs: 1
 
 # Observations
 size: [64, 64] # [128, 128]
@@ -83,3 +84,9 @@ ent_coef: 0.01
 verbose: 1
 imagination_progress_bar: True
 action_clip: 0.5 # action range: [-action_clip, +action_clip]
+
+
+
+# Baselines Training
+n_updates: 500
+n_steps_per_update: 128
