@@ -88,5 +88,5 @@ action_clip: 0.5 # action range: [-action_clip, +action_clip]
 
 # Baselines Training
 max_episode_steps: 1000 # 1000 steps => about 20 GB with a 20M-parameters model
-n_updates: 5000 # 1000
+n_updates: 20000 # 1000
 n_steps_per_update: 16
