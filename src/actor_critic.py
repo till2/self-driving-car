@@ -17,13 +17,16 @@ class ContinuousActorCritic(nn.Module):
         
         config = load_config()
 
-        self.n_features = config["H"] + config["Z"]
+        if config["toy_env"]:
+            self.n_features = config["Z"]
+        else:
+            self.n_features = config["H"] + config["Z"]
         self.n_actions = config["A"]
 
         # hyperparameters
         self.gamma = config["gamma"]
         self.lam = config["lam"]
-        self.entropy_coeff = config["entropy_coeff"]
+        self.ent_coef = config["ent_coef"]
         self.n_envs = config["n_envs"]
         self.action_clip = config["action_clip"]
         self.critic_lr = config["critic_lr"]
@@ -42,13 +45,13 @@ class ContinuousActorCritic(nn.Module):
         if not isinstance(x, torch.Tensor):
             x = torch.Tensor(x)
         mu, var = self.actor(x)
-        mu = torch.clamp(mu, min=-2, max=2)
-        var = torch.clamp(var, min=1e-8, max=1)
+        # mu = torch.clamp(mu, min=-2, max=2)
+        var = torch.clamp(var, min=1e-8)
         std = torch.sqrt(var)
         
         action_pd = dist.Normal(mu, std)
         action = action_pd.rsample()
-        action = torch.clip(action, -self.action_clip, self.action_clip)
+        action = torch.clip(action, -self.action_clip, self.action_clip) # [-0.5,0.5]
         
         log_prob = action_pd.log_prob(action)
         actor_entropy = action_pd.entropy()
@@ -86,7 +89,7 @@ class ContinuousActorCritic(nn.Module):
         critic_loss = advantages.pow(2).mean()
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.entropy_coeff * ep_entropies.mean()
+        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies.mean()
 
         return critic_loss, actor_loss
     

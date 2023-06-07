@@ -14,7 +14,7 @@ class VAE(nn.Module):
     
     
     def __init__(self):
-        super(VAE, self).__init__()
+        super().__init__()
         config = load_config()
 
         self.input_channels = 1 if config["grayscale"] else 3 # for the encoder
@@ -63,7 +63,7 @@ class VAE(nn.Module):
         self.encoder.add_module("flatten", nn.Flatten())
 
         # predict mu and logvar
-        print(f"- adding mu, logvar layers. mu: {self.hidden_dims}, logvar: {self.hidden_dims}")
+        print(f"- adding Linear() for Mu: {self.hidden_dims} and Logvar: {self.hidden_dims}")
             
         print("\nInitializing decoder:")
         print(f"- adding Reshape: (*,{self.hidden_dims}) => (*,{self.decoder_start_channels},{height},{width})") # reshape in self.decode function
@@ -102,14 +102,14 @@ class VAE(nn.Module):
     
     def decode(self, z):
         dec_inp = self.linear(z).view(self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width)
-        x_hat = self.decoder(dec_inp.view(self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width))
+        x_hat = self.decoder(dec_inp)
         return x_hat
     
     
     def forward(self, x):
         z, mu, logvar = self.encode(x)
         x_hat = self.decode(z)
-        return x_hat, mu, logvar
+        return z, x_hat, mu, logvar
         
 
     def get_loss(self, x, x_hat, mu, logvar):

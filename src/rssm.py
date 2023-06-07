@@ -15,7 +15,7 @@ from .utils import load_config, to_np
 
 class RSSM(nn.Module):
     def __init__(self):
-        super(RSSM, self).__init__()
+        super().__init__()
         config = load_config()
 
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)

@@ -9,8 +9,11 @@ device: "cuda:0" # "cuda:0" | "cpu"
 exe_path: "/home/till/Desktop/Thesis/donkeycar_sim/DonkeySimLinux/donkey_sim.x86_64"
 env_id: "donkey-minimonaco-track-v0" # "donkey-generated-roads-v0"
 port: 9091
-frame_skip: 2
 max_cte: 4.0
+frame_skip: 2
+steer_limit: 1.0
+throttle_min: -0.2 # the action clip gets applied on top of this. e.g.: action_clip=0.5 => throttle is between [-0.1, 0.1]
+throttle_max: 0.2
 body_style: "f1" # "donkey" | "bare" | "car01" | "f1" | "cybertruck"
 body_rgb: [255, 255, 255]
 car_name: "RL-Racer"
@@ -74,16 +77,19 @@ mlp_hidden_dims: 256
 # Replay Buffer
 store_on_cpu: True
 
-# RL Agent
+# RL Agent (SB3)
 gamma: 0.997
 lam: 0.95 # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bias, no variance)
 ent_coef: 0.01
-#critic_lr: 5e-3
-#actor_lr: 1e-3
 verbose: 1
 imagination_progress_bar: True
-action_clip: 0.5 # action range: [-action_clip, +action_clip]
+action_clip: 0.5 # action range: [-action_clip, +action_clip] # uses half the action space with clip=0.5
+action_space_low: -1
+action_space_high: +1
 
+# ContinuousActorCritic
+critic_lr: 5e-3
+actor_lr: 1e-3
 
 
 # Baselines Training

@@ -5,6 +5,7 @@ from ruamel.yaml import YAML
 
 import logging
 import gymnasium as gym
+from gymnasium.experimental.wrappers import RescaleActionV0
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 
@@ -81,7 +82,8 @@ def make_env():
         make_one_env = lambda: gym.make(
             "CarRacing-v2", 
             # max_episode_steps=config["max_episode_steps"], 
-            render_mode="rgb_array"
+            render_mode="rgb_array",
+            continuous=True,
         )
 
     else:
@@ -99,9 +101,9 @@ def make_env():
             # sim: hyperparameters
             "max_cte": config["max_cte"],
             "frame_skip": config["frame_skip"],
-            "steer_limit": config["action_clip"],
-            "throttle_min": 0.0,
-            "throttle_max": 0.3,
+            "steer_limit": config["steer_limit"],
+            "throttle_min": config["throttle_min"],
+            "throttle_max": config["throttle_max"],
 
             # sim: cosmetics
             "body_style": config["body_style"],
@@ -126,7 +128,7 @@ def make_env():
             print("Wrapping the env in a SB3 Monitor wrapper to record episode statistics.")
             env = DummyVecEnv([lambda: Monitor(make_one_env())] * n_envs)
         else:
-            print("Wrapping the env in a Gymnasium wrapper to record episode statistics.")
+            print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
             env = gym.wrappers.RecordEpisodeStatistics(
                 make_one_env(), 
                 deque_size=config["n_envs"] * config["n_updates"],
@@ -134,16 +136,22 @@ def make_env():
         
     else:
         print("Making a non-vectorized env.")
-        print("Wrapping the env in a Gymnasium wrapper to record episode statistics.")
+        print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
         env = gym.wrappers.RecordEpisodeStatistics(
             make_one_env(), 
             deque_size=config["n_updates"],
         )
     
-    print("Adding a time limit wrapper with %d max episode steps." % config["max_episode_steps"])
+    print("Adding a TimeLimit wrapper with %d max episode steps." % config["max_episode_steps"])
     env = gym.wrappers.TimeLimit(env, max_episode_steps=config["max_episode_steps"])
 
     print("Adding an AutoReset wrapper.")
     env = gym.wrappers.AutoResetWrapper(env)
+
+    print(f"Adding a RescaleActionV0 wrapper to have an effective action space [%d,%d]." %(config["action_space_low"], config["action_space_high"]))
+    env = RescaleActionV0(env, min_action=config["action_space_low"], max_action=config["action_space_high"])
+    print("Note: Clip actions at", config["action_clip"], "=> The agent can take agents from:")
+    print("Low:", env.action_space.low * config["action_clip"], end=" to ")
+    print("High:", env.action_space.high * config["action_clip"])
 
     return env
