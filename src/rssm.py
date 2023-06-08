@@ -17,7 +17,6 @@ class RSSM(nn.Module):
     def __init__(self):
         super().__init__()
         config = load_config()
-        self.to(config["device"])
 
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
         self.num_categoricals = config["num_categoricals"]
@@ -45,6 +44,8 @@ class RSSM(nn.Module):
         self.rssm_lr = config["rssm_lr"]
         self.rssm_l2_regularization = config["rssm_l2_regularization"]
         self.optim = optim.Adam(self.parameters(), lr=self.rssm_lr, weight_decay=self.rssm_l2_regularization)
+
+        self.to(config["device"])
     
     def step(self, action, h, z):
         h = h.view(-1, self.H)
