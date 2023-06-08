@@ -36,6 +36,8 @@ class ContinuousActorCritic(nn.Module):
         self.max_grad_norm = config["max_grad_norm"]
         self.device = config["device"]
 
+        self.to(self.device)
+
         # define actor and critic nets
         self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian")
@@ -52,7 +54,7 @@ class ContinuousActorCritic(nn.Module):
         var = torch.clamp(var, min=1e-8)
         std = torch.sqrt(var)
         
-        action_pd = dist.MultivariateNormal(mu, var * torch.eye(mu.shape[0], device=self.device))
+        action_pd = dist.Normal(mu, std)
         action = action_pd.sample()
         # action = torch.clip(action, -self.action_clip, self.action_clip) # [-0.5,0.5]
         

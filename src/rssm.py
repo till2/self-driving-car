@@ -17,6 +17,7 @@ class RSSM(nn.Module):
     def __init__(self):
         super().__init__()
         config = load_config()
+        self.to(config["device"])
 
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
         self.num_categoricals = config["num_categoricals"]

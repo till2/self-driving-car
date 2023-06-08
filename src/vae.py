@@ -16,6 +16,7 @@ class VAE(nn.Module):
     def __init__(self):
         super().__init__()
         config = load_config()
+        self.to(config["device"])
 
         self.input_channels = 1 if config["grayscale"] else 3 # for the encoder
         self.decoder_start_channels = config["channels"][-1] # for the decoder
