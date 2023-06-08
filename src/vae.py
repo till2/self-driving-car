@@ -21,7 +21,7 @@ class VAE(nn.Module):
         self.decoder_start_channels = config["channels"][-1] # for the decoder
 
         self.hidden_dims = config["Z"]
-        self.beta = 4
+        self.beta = 1
         
         self.mu = nn.Linear(self.hidden_dims, self.hidden_dims)
         self.logvar = nn.Linear(self.hidden_dims, self.hidden_dims)

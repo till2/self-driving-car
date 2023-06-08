@@ -49,7 +49,7 @@ class MLP(nn.Module):
                     )
                     self.output_var = nn.Sequential(
                         nn.Linear(layer_in, layer_out),
-                        nn.Sigmoid() # => constrain variance to [0, 1]
+                        nn.Softplus() # => constrain variance to [0, inf]
                     )
                     
             # define block

@@ -2,6 +2,7 @@
 debug: False
 show_inline_tensorboard: False 
 log_dir: "logs/"
+log_interval: 5 # log every 50 steps
 seed: 0
 device: "cuda:0" # "cuda:0" | "cpu"
 
@@ -21,7 +22,7 @@ font_size: 30
 
 # Vectorized Envs
 sb3_monitor: False
-toy_env: True
+toy_env: 1
 vectorized: True
 n_envs: 1
 
@@ -83,7 +84,7 @@ lam: 0.95 # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bia
 ent_coef: 0.01
 verbose: 1
 imagination_progress_bar: True
-action_clip: 0.5 # action range: [-action_clip, +action_clip] # uses half the action space with clip=0.5
+action_clip: 1.0 # action range: [-action_clip, +action_clip] # uses half the action space with clip=0.5
 action_space_low: -1
 action_space_high: +1
 
@@ -95,4 +96,4 @@ actor_lr: 1e-3
 # Baselines Training
 max_episode_steps: 1000 # 1000 steps => about 20 GB with a 20M-parameters model
 n_updates: 20000 # 1000
-n_steps_per_update: 16
+n_steps_per_update: 64
