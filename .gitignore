@@ -161,3 +161,6 @@ runs/
 baseline_weights/
 TwoHotEncoding.ipynb
 gym-donkeycar/
+src/example.py
+src/actor_critic_recurrent.py
+Untitled.ipynb

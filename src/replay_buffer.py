@@ -12,10 +12,10 @@ from .utils import load_config, to_np
 class ReplayBuffer():
     """ This Buffer class is used for storing preprocessed observations x
         that serve at the starting point for imagination episodes. """
-    def __init__(self):
+    def __init__(self, buffer_size=None):
 
         config = load_config()
-        self.buffer_size = config["buffer_size"]
+        self.buffer_size = config["buffer_size"] if buffer_size is None else buffer_size
         self.store_on_cpu = config["store_on_cpu"]
         self.device = config["device"]
         self.buffer = deque(maxlen=self.buffer_size)
@@ -28,10 +28,14 @@ class ReplayBuffer():
             
         self.buffer.append(observation)
 
-    def sample(self):
-        observation = random.choice(self.buffer)
+    def sample(self, n=1):
+        if n == 1:
+            observation = random.choice(self.buffer)
+        else:
+            observation = torch.stack(random.sample(self.buffer, n))
 
         # move buffer object to original device (probably GPU)
+
         if self.store_on_cpu and isinstance(observation, torch.Tensor):
             observation = observation.to(self.device)
 

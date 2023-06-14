@@ -22,21 +22,22 @@ font_size: 30
 
 # Vectorized Envs
 sb3_monitor: False
-toy_env: 1
+toy_env: True
 vectorized: True
 n_envs: 1
 
 # Observations
 size: [64, 64] # [128, 128]
 grayscale: False
+symlog_rewards: True
 
 # Training
 start_episode: 1000 # if starting from a pretrained rssm (to skip the seed episodes)
 n_seed_episodes: 1000
 n_training_episodes: 5000
-max_imagination_episode_steps: 15
+max_imagination_episode_steps: 16
 imagination_timesteps_per_model_update: 200
-max_grad_norm: 1
+max_grad_norm: 10
 
 # RSSM
 rssm_lr: 1e-4
@@ -46,7 +47,7 @@ H: 512
 # Z is set in the utils file
 # A is set in the utils file
 uniform_ratio: 0.01
-buffer_size: 50_000
+buffer_size: 50_000 # for Dreamer (latent vectors); reduce the size if storing images for the vae (for vae baselines)
 activation: "silu" # "silu", "elu", "relu"
 
 # Categorical VAE
@@ -86,7 +87,7 @@ verbose: 0
 imagination_progress_bar: True
 action_clip: 1.0 # action range: [-action_clip, +action_clip] # uses half the action space with clip=0.5
 action_space_low: -1
-action_space_high: +1
+action_space_high: 1
 
 # ContinuousActorCritic
 critic_lr: 5e-3
@@ -95,5 +96,13 @@ actor_lr: 1e-3
 
 # Baselines Training
 max_episode_steps: 1000 # 1000 steps => about 20 GB with a 20M-parameters model
-n_updates: 20000 # 1000
-n_steps_per_update: 64
+n_updates: 31250 # 1000
+n_steps_per_update: 16
+
+# Gaussian VAE (Baselines)
+gaussian_vae_buffer_size: 30000
+vae_batch_size: 32 # for training on samples in the replay buffer
+add_obs_to_buffer_interval: 10 # add an image every N steps for diversity
+gaussian_vae_beta: 1.0 # KLD loss coef
+gaussian_vae_lr: 1e-4
+gaussian_vae_weight_decay: 1e-6

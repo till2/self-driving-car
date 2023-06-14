@@ -21,7 +21,7 @@ class VAE(nn.Module):
         self.decoder_start_channels = config["channels"][-1] # for the decoder
 
         self.hidden_dims = config["Z"]
-        self.beta = 1
+        self.beta = config["gaussian_vae_beta"] # KLD loss coef
         
         self.mu = nn.Linear(self.hidden_dims, self.hidden_dims)
         self.logvar = nn.Linear(self.hidden_dims, self.hidden_dims)
@@ -87,12 +87,17 @@ class VAE(nn.Module):
 
         if config["decoder_final_activation"].lower() == "sigmoid":
             self.decoder.add_module("output_activation", nn.Sigmoid())
+
+        # define the optimizer
+        self.optim = optim.Adam(self.parameters(), lr=config["gaussian_vae_lr"], weight_decay=config["gaussian_vae_weight_decay"])
         
         self.to(config["device"])
 
-            
-    def encode(self, x):
-        logits  = self.encoder(x).flatten()
+
+    def encode(self, x, batched=False):
+        logits  = self.encoder(x)
+        if not batched:
+            logits = logits.flatten()
         mu, logvar = self.mu(logits), self.logvar(logits)
         
         # reparameterization
@@ -103,13 +108,13 @@ class VAE(nn.Module):
     
     
     def decode(self, z):
-        dec_inp = self.linear(z).view(self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width)
+        dec_inp = self.linear(z).view(-1, self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width)
         x_hat = self.decoder(dec_inp)
         return x_hat
     
     
-    def forward(self, x):
-        z, mu, logvar = self.encode(x)
+    def forward(self, x, batched=False):
+        z, mu, logvar = self.encode(x, batched)
         x_hat = self.decode(z)
         return z, x_hat, mu, logvar
         
@@ -125,8 +130,8 @@ class VAE(nn.Module):
         
         # total loss
         kld_loss = self.beta * KLD
-        loss = reconstruction_loss + kld_loss
-        return loss, reconstruction_loss, kld_loss
+        vae_loss = reconstruction_loss + kld_loss
+        return vae_loss, reconstruction_loss, kld_loss
 
     
     def save_weights(self):
@@ -141,7 +146,7 @@ class VAE(nn.Module):
     def load_weights(self, path="weights/VAE", eval_mode=True):
         self.load_state_dict(torch.load(path))
         if eval_mode:
-            print("Set VAE to evaluation mode.")
+            print("Set VAE to eval mode.")
             self.eval()
     
     

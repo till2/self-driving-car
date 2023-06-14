@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -10,13 +12,16 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 
 
-def to_np(x):
-    return x.detach().cpu().numpy() 
+to_np = lambda x: x.detach().cpu().numpy()
+
+symlog = lambda r: np.sign(r) * np.log(abs(r) + 1)
+symexp = lambda r: np.sign(r) * (np.exp(abs(r)) - 1)
 
 
 def load_config():
     yaml = YAML(typ='safe')
-    with open("./src/config.yaml", "r") as file:
+    file_path = os.path.expanduser('~/Desktop/self-driving-car/src/config.yaml')
+    with open(file_path, "r") as file:
         static_params = yaml.load(file)
 
     # Set dependent variables
@@ -81,7 +86,6 @@ def make_env():
         print("Making a toy env.")
         make_one_env = lambda: gym.make(
             "CarRacing-v2", 
-            # max_episode_steps=config["max_episode_steps"], 
             render_mode="rgb_array",
             continuous=True,
         )
@@ -115,7 +119,6 @@ def make_env():
         make_one_env = lambda: gym.make(
             "GymV21Environment-v0", 
             env_id=config["env_id"],
-            # max_episode_steps=config["max_episode_steps"],
             make_kwargs={
                 "conf": sim_config
             })
@@ -153,5 +156,10 @@ def make_env():
     print("Note: Clip actions at", config["action_clip"], "=> The agent can take agents from:")
     print("Low:", env.action_space.low * config["action_clip"], end=" to ")
     print("High:", env.action_space.high * config["action_clip"])
+
+    # Maybe do the symlog reward scaling after env.step() to log the real reward 
+    # if config["symlog_rewards"]:
+    #     print("Adding symlog reward scaling.")
+    #     env = gym.wrappers.TransformReward(env, symlog)
 
     return env

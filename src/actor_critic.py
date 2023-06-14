@@ -13,7 +13,7 @@ from .utils import load_config, to_np
 class ContinuousActorCritic(nn.Module):
     
     def __init__(self):
-        super().__init__() 
+        super().__init__()
         
         config = load_config()
 
@@ -21,9 +21,13 @@ class ContinuousActorCritic(nn.Module):
         #     self.n_features = config["Z"]
         # else:
         #     self.n_features = config["H"] + config["Z"]
-        self.n_features = 3
-        # self.n_actions = config["A"]
-        self.n_actions = 1
+
+        self.n_features = config["Z"] # for using with an autoencoder
+        self.n_actions = config["A"]
+
+        # For testing on Pendulum-v1:
+        # self.n_features = 3
+        # self.n_actions = 1
 
         # hyperparameters
         self.gamma = config["gamma"]
@@ -107,6 +111,8 @@ class ContinuousActorCritic(nn.Module):
         self, critic_loss: torch.Tensor, actor_loss: torch.Tensor
     ) -> None:
 
+        config = load_config()
+
         self.critic_optim.zero_grad()
         critic_loss.backward(retain_graph=True)
         nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=self.max_grad_norm, norm_type=2)
@@ -129,5 +135,5 @@ class ContinuousActorCritic(nn.Module):
     def load_weights(self, path="weights/ContinuousActorCritic", eval_mode=False):
         self.load_state_dict(torch.load(path))
         if eval_mode:
-            print("Set VAE to evaluation mode.")
+            print("Set Agent to eval mode.")
             self.eval()
