@@ -10,8 +10,11 @@ import torch.nn.functional as F
 from gymnasium import spaces
 from PIL import Image
 
+from gymnasium.experimental.wrappers import RescaleActionV0
+from gymnasium.wrappers import TimeLimit, AutoResetWrapper
+
 from .replay_buffer import ReplayBuffer
-from .preprocessing import grayscale_transform as transform
+from .preprocessing import transform
 from .utils import load_config, to_np
 
 
@@ -142,3 +145,26 @@ class ImaginationEnv(gym.Env):
         # reset saved images
         if self.render_mode in ["rgb_array", "gif"]:
             del self.images
+
+
+def make_imagination_env(rssm, replay_buffer, render_mode):
+    config = load_config()
+
+    env = ImaginationEnv(
+        rssm,
+        replay_buffer,
+        render_mode
+    )
+    print("Adding a TimeLimit wrapper with %d max imagination episode steps." % config["max_imagination_episode_steps"])
+    env = TimeLimit(env, max_episode_steps=config["max_imagination_episode_steps"])
+
+    print("Adding an AutoReset wrapper.")
+    env = AutoResetWrapper(env)
+
+    print(f"Adding a RescaleActionV0 wrapper to have an effective action space [%d,%d]." %(config["action_space_low"], config["action_space_high"]))
+    env = RescaleActionV0(env, min_action=config["action_space_low"], max_action=config["action_space_high"])
+    print("Note: Clip actions at", config["action_clip"], "=> The agent can take agents from:")
+    print("Low:", env.action_space.low * config["action_clip"], end=" to ")
+    print("High:", env.action_space.high * config["action_clip"])
+
+    return env

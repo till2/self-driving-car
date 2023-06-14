@@ -8,6 +8,7 @@ from ruamel.yaml import YAML
 import logging
 import gymnasium as gym
 from gymnasium.experimental.wrappers import RescaleActionV0
+from gymnasium.wrappers import TimeLimit, AutoResetWrapper
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 

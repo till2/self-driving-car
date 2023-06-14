@@ -10,7 +10,7 @@ device = config["device"]
 grayscale = config["grayscale"]
 height, width = config["size"]
 
-grayscale_transform = transforms.Compose([
+transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Lambda(lambda x: x.to(device)),
     transforms.Resize((height, width)),

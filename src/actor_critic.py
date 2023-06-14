@@ -51,7 +51,6 @@ class ContinuousActorCritic(nn.Module):
         self.to(self.device)
     
     def get_action(self, x):
-        config = load_config()
 
         if not isinstance(x, torch.Tensor):
             x = torch.Tensor(x).to(self.device)
@@ -64,10 +63,10 @@ class ContinuousActorCritic(nn.Module):
         action_pd = dist.Normal(mu, std)
         actions = action_pd.sample()
 
-        action = torch.tanh(actions) * config["action_clip"] ### maybe remove action_clip. But doesn't do anything for now, since it's 1.
+        action = torch.tanh(actions)
         actor_entropy = action_pd.entropy()
         log_probs = action_pd.log_prob(actions)
-        log_probs -= torch.log(1 - action.pow(2) + 1e-8) # update logprob because of tanh after sampling
+        log_probs -= torch.log(1 - torch.tanh(action) + 1e-8) # update logprob because of tanh after sampling
         log_prob = log_probs.sum(0, keepdim=True) # reduce to a scalar (the probs would multiply, but logprobs add)
 
         return action, log_prob, actor_entropy
