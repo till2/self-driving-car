@@ -152,11 +152,10 @@ def make_env():
     print("Adding an AutoReset wrapper.")
     env = gym.wrappers.AutoResetWrapper(env)
 
-    print(f"Adding a RescaleActionV0 wrapper to have an effective action space [%d,%d]." %(config["action_space_low"], config["action_space_high"]))
+    print("Adding a RescaleActionV0 wrapper.", end=" ")
     env = RescaleActionV0(env, min_action=config["action_space_low"], max_action=config["action_space_high"])
-    print("Note: Clip actions at", config["action_clip"], "=> The agent can take agents from:")
-    print("Low:", env.action_space.low * config["action_clip"], end=" to ")
-    print("High:", env.action_space.high * config["action_clip"])
+    print("Low:", env.action_space.low, end=", ")
+    print("High:", env.action_space.high)
 
     # Maybe do the symlog reward scaling after env.step() to log the real reward 
     # if config["symlog_rewards"]:

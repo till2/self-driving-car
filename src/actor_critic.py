@@ -66,7 +66,7 @@ class ContinuousActorCritic(nn.Module):
         action = torch.tanh(actions)
         actor_entropy = action_pd.entropy()
         log_probs = action_pd.log_prob(actions)
-        log_probs -= torch.log(1 - torch.tanh(action) + 1e-8) # update logprob because of tanh after sampling
+        log_probs -= torch.log(1 - action.pow(2) + 1e-8) # update logprob because of tanh after sampling
         log_prob = log_probs.sum(0, keepdim=True) # reduce to a scalar (the probs would multiply, but logprobs add)
 
         return action, log_prob, actor_entropy
