@@ -96,8 +96,8 @@ actor_lr: 1e-4
 
 # ActorCriticDreamer
 num_buckets: 255
-min_bucket: -20
-max_bucket: 20
+min_bucket: -15
+max_bucket: 15
 
 
 # Baselines Training

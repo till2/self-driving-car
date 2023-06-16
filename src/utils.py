@@ -169,9 +169,4 @@ def make_env():
     print("Low:", env.action_space.low, end=", ")
     print("High:", env.action_space.high)
 
-    # Maybe do the symlog reward scaling after env.step() to log the real reward 
-    # if config["symlog_rewards"]:
-    #     print("Adding symlog reward scaling.")
-    #     env = gym.wrappers.TransformReward(env, symlog)
-
     return env
