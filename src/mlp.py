@@ -41,6 +41,8 @@ class MLP(nn.Module):
                     activation = False
                 if out_type == "sigmoid":
                     activation = nn.Sigmoid()
+                if out_type == "softmax":
+                    activation = nn.Softmax(dim=-1)
                 elif out_type == "gaussian":
                     activation = False
                     self.output_mean = nn.Sequential(

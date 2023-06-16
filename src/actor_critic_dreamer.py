@@ -10,7 +10,7 @@ from torch import distributions as dist
 from .mlp import MLP
 from .utils import load_config, to_np, symlog, symexp
 
-class ContinuousActorCritic(nn.Module):
+class ActorCriticDreamer(nn.Module):
     
     def __init__(self):
         super().__init__()
@@ -41,7 +41,7 @@ class ContinuousActorCritic(nn.Module):
         self.device = config["device"]
 
         # define actor and critic nets
-        self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
+        self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian")
         
         # define optimizers for actor and critic
@@ -86,23 +86,32 @@ class ContinuousActorCritic(nn.Module):
 
         # append the last value pred to the value preds tensor
         ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(1).detach()), dim=0)
+        returns = torch.zeros_like(ep_value_preds).to(self.device)
 
-        # set up tensors for the advantage calculation
-        returns = torch.zeros_like(ep_rewards).to(self.device)
-        advantages = torch.zeros_like(ep_rewards).to(self.device)
-        next_advantage = torch.zeros_like(last_value_pred)
+        print(len(ep_value_preds))
+        print(len(ep_rewards))
 
-        # calculate advantages using GAE
-        for t in reversed(range(len(ep_rewards))):
-            returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
-            td_error = returns[t] - ep_value_preds[t]
-            advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
+        # compute bootstrapped lambda returns
+        for t in reversed(range(len(returns))):
+            if t == len(returns)-1:
+                returns[t] = last_value_pred
+            else:
+                returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])        
         
+        print(returns)
+        returns = symlog(returns)
+        print(returns)
+
         # calculate the critic loss
-        critic_loss = advantages.pow(2).mean()
+        print("returns:", returns.shape)
+        print("value_preds:", ep_value_preds.shape)
+
+        # critic loss buckets todo.
+        critic_loss = F.mse_loss(ep_value_preds, returns)
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies.mean()
+        # actor loss todo.
+        actor_loss = -(ep_log_probs * returns[:-1].detach()).mean() - self.ent_coef * ep_entropies.mean()
         return critic_loss, actor_loss
 
     

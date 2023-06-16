@@ -91,8 +91,13 @@ action_space_low: -1
 action_space_high: 1
 
 # ContinuousActorCritic
-critic_lr: 5e-3
-actor_lr: 1e-3
+critic_lr: 5e-4
+actor_lr: 1e-4
+
+# ActorCriticDreamer
+num_buckets: 255
+min_bucket: -20
+max_bucket: 20
 
 
 # Baselines Training

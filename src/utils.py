@@ -15,8 +15,20 @@ from stable_baselines3.common.monitor import Monitor
 
 to_np = lambda x: x.detach().cpu().numpy()
 
-symlog = lambda r: np.sign(r) * np.log(abs(r) + 1)
-symexp = lambda r: np.sign(r) * (np.exp(abs(r)) - 1)
+
+def symlog(r):
+    # note: log1p = log(1+x)
+    if isinstance(r, torch.Tensor):
+        return torch.sign(r) * torch.log1p(torch.absolute(r))
+    else:
+        return np.sign(r) * np.log1p(np.absolute(r))
+
+
+def symexp(r):
+    if isinstance(r, torch.Tensor):
+        return torch.sign(r) * (torch.exp(torch.absolute(r)) - 1)
+    else:
+        return np.sign(r) * (np.exp(np.absolute(r)) - 1)
 
 
 def load_config():
