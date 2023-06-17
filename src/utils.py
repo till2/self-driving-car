@@ -37,10 +37,12 @@ def twohot_encode(x):
     Returns the twohot encoded symlog return as a (255,) vector.
     """
     config = load_config()
-    # buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(device)
-    buckets = torch.linspace(-15, 15, 255).to(config["device"])
+    buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(config["device"])
     encoded = torch.zeros_like(buckets).to(config["device"])
+    
+    # symlog transform the value
     x = symlog(x)
+
     if x < buckets[0]:
         encoded[0] = 1.0
     elif x > buckets[-1]:

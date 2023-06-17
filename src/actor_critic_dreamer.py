@@ -107,8 +107,8 @@ class ActorCriticDreamer(nn.Module):
         ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(-1).detach()), dim=0)
         returns = torch.zeros_like(ep_value_preds).to(self.device)
 
-        print(len(ep_value_preds))
-        print(len(ep_rewards))
+        # print(len(ep_value_preds))
+        # print(len(ep_rewards))
 
         # compute bootstrapped lambda returns
         for t in reversed(range(len(returns))):
@@ -116,27 +116,14 @@ class ActorCriticDreamer(nn.Module):
                 returns[t] = last_value_pred
             else:
                 returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])        
-        
-        print(returns)
-        returns = symlog(returns)
-        print(returns)
 
-        # calculate the critic loss
-        print("returns:", returns.shape)
-        print("value_preds:", ep_value_preds.shape)
-
-        # two-hot encode the returns and update the critic
-        twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # needs .to(device)?
-
-        critic_loss = 0.0
-        for r in returns:
-            pass
-
-
-        # critic_loss = F.mse_loss(ep_value_preds, returns)
+        # two-hot encode the returns and calculate the critic loss
+        twohot_returns = torch.stack([twohot_encode(r) for r in returns])
+        critic_loss = - twohot_returns @ torch.log(batch_critic_dists).T
+        critic_loss = torch.sum(torch.diag(critic_loss))
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        # actor loss todo.
+        # actor loss with normalization todo.
         actor_loss = -(ep_log_probs * returns[:-1].detach()).mean() - self.ent_coef * ep_entropies.mean()
         return critic_loss, actor_loss
 
