@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch import distributions as dist
 
 from .mlp import MLP
-from .utils import load_config, to_np, symlog, symexp
+from .utils import load_config, to_np, symlog, symexp, twohot_encode
 
 class ActorCriticDreamer(nn.Module):
     
@@ -39,6 +39,9 @@ class ActorCriticDreamer(nn.Module):
         self.actor_lr = config["actor_lr"]
         self.max_grad_norm = config["max_grad_norm"]
         self.device = config["device"]
+        self.min_bucket = config["min_bucket"]
+        self.max_bucket = config["max_bucket"]
+        self.num_buckets = config["num_buckets"]
 
         # define actor and critic nets
         self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax")
@@ -70,13 +73,29 @@ class ActorCriticDreamer(nn.Module):
         log_prob = log_probs.sum(0, keepdim=True) # reduce to a scalar
 
         return action, log_prob, actor_entropy
+
+
+    def apply_critic(self, x):
+        """
+        x: a preprocessed observation
+        
+        Returns the predicted original return.
+        Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
+        """
+        x = x.to(self.device)
+        buckets = torch.linspace(self.min_bucket, self.max_bucket, self.num_buckets).to(self.device)
+        value_pred = symexp(self.critic(x) @ buckets)
+        critic_dist = self.critic(x)
+        return value_pred, critic_dist
     
     def get_loss(
         self,
         ep_rewards: torch.Tensor,
         ep_log_probs: torch.Tensor,
         ep_value_preds: torch.Tensor,
+        batch_critic_dists: torch.Tensor,
         last_value_pred: torch.Tensor,
+        last_critic_dist: torch.Tensor,
         ep_entropies: torch.Tensor,
         ep_masks: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -85,7 +104,7 @@ class ActorCriticDreamer(nn.Module):
         """
 
         # append the last value pred to the value preds tensor
-        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(1).detach()), dim=0)
+        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(-1).detach()), dim=0)
         returns = torch.zeros_like(ep_value_preds).to(self.device)
 
         print(len(ep_value_preds))
@@ -106,8 +125,15 @@ class ActorCriticDreamer(nn.Module):
         print("returns:", returns.shape)
         print("value_preds:", ep_value_preds.shape)
 
-        # critic loss buckets todo.
-        critic_loss = F.mse_loss(ep_value_preds, returns)
+        # two-hot encode the returns and update the critic
+        twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # needs .to(device)?
+
+        critic_loss = 0.0
+        for r in returns:
+            pass
+
+
+        # critic_loss = F.mse_loss(ep_value_preds, returns)
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
         # actor loss todo.

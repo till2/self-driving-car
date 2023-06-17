@@ -31,6 +31,29 @@ def symexp(r):
         return np.sign(r) * (np.exp(np.absolute(r)) - 1)
 
 
+def twohot_encode(x):
+    """
+    x: the original return
+    Returns the twohot encoded symlog return as a (255,) vector.
+    """
+    config = load_config()
+    # buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(device)
+    buckets = torch.linspace(-15, 15, 255).to(config["device"])
+    encoded = torch.zeros_like(buckets).to(config["device"])
+    x = symlog(x)
+    if x < buckets[0]:
+        encoded[0] = 1.0
+    elif x > buckets[-1]:
+        encoded[-1] = 1.0
+    else:
+        # index: right bucket (k+1 in the DreamerV3 paper), index-1: left bucket (k in the DreamerV3 paper)
+        index = torch.searchsorted(buckets, x, side="right") # index: buckets[index-1] <= v < buckets[index]
+        weight = (buckets[index] - x) / (buckets[index] - buckets[index-1])
+        encoded[index-1] = weight
+        encoded[index] = 1 - weight
+    return encoded
+
+
 def load_config():
     yaml = YAML(typ='safe')
     file_path = os.path.expanduser('~/Desktop/self-driving-car/src/config.yaml')
