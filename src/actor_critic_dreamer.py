@@ -44,8 +44,10 @@ class ActorCriticDreamer(nn.Module):
         self.num_buckets = config["num_buckets"]
 
         # define actor and critic nets
-        self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax")
-        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian")
+        print("Initializing critic.")
+        self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
+        print("\nInitializing actor.")
+        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian", weight_init="final_layer_zeros")
         
         # define optimizers for actor and critic
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
@@ -82,7 +84,9 @@ class ActorCriticDreamer(nn.Module):
         Returns the predicted original return.
         Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
         """
-        x = x.to(self.device)
+        if not isinstance(x, torch.Tensor):
+            x = torch.Tensor(x).to(self.device)
+
         buckets = torch.linspace(self.min_bucket, self.max_bucket, self.num_buckets).to(self.device)
         value_pred = symexp(self.critic(x) @ buckets)
         critic_dist = self.critic(x)
@@ -103,12 +107,10 @@ class ActorCriticDreamer(nn.Module):
         Computes the loss of actor and critic using GAE.
         """
 
-        # append the last value pred to the value preds tensor
-        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(-1).detach()), dim=0)
+        # append the last value pred and last critic_dist to the batch tensors (merge in dim 0. shape: [16,255] => [17,255])
+        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(0).detach()), dim=0)
+        batch_critic_dists = torch.cat((batch_critic_dists, last_critic_dist.unsqueeze(0).detach()), dim=0)
         returns = torch.zeros_like(ep_value_preds).to(self.device)
-
-        # print(len(ep_value_preds))
-        # print(len(ep_rewards))
 
         # compute bootstrapped lambda returns
         for t in reversed(range(len(returns))):
@@ -119,6 +121,7 @@ class ActorCriticDreamer(nn.Module):
 
         # two-hot encode the returns and calculate the critic loss
         twohot_returns = torch.stack([twohot_encode(r) for r in returns])
+
         critic_loss = - twohot_returns @ torch.log(batch_critic_dists).T
         critic_loss = torch.sum(torch.diag(critic_loss))
 

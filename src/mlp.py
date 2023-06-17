@@ -7,8 +7,8 @@ from .utils import load_config, to_np
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dims, output_dims, out_type="linear"):
-        super(MLP, self).__init__()
+    def __init__(self, input_dims, output_dims, out_type="linear", weight_init=None):
+        super().__init__()
 
         config = load_config()
         
@@ -81,6 +81,12 @@ class MLP(nn.Module):
             # for output layer add specified activation
             elif activation:
                 layer.add_module("2", activation)
+
+
+            # init the weights of the final layer to zeros
+            if (i == self.n_layers - 1) and (weight_init == "final_layer_zeros"):
+                print(f"Adding zero weight init to the output layer.")
+                nn.init.zeros_(linear.weight)
             
             if layer is not None:
                 self.layers.add_module(f"layer_{i}", layer)

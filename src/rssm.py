@@ -37,7 +37,7 @@ class RSSM(nn.Module):
         
         # init MLPs
         self.dynamics_mlp = MLP(input_dims=self.H, output_dims=self.Z) # H -> Z
-        self.reward_mlp = MLP(input_dims=self.H + self.Z, output_dims=1) # state (H+Z) -> 1
+        self.reward_mlp = MLP(input_dims=self.H + self.Z, output_dims=1, weight_init="final_layer_zeros") # state (H+Z) -> 1
         self.continue_mlp = MLP(input_dims=self.H + self.Z, output_dims=1, out_type="sigmoid") # state (H+Z)->1 into bernoulli
 
         # init the optimizer
