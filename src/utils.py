@@ -81,6 +81,32 @@ def load_config():
     return config
 
 
+class ExponentialMovingAvg():
+    
+    def __init__(self):
+        config = load_config()
+        self.quantile_05 = torch.tensor(0.0).to(config["device"])
+        self.quantile_95 = torch.tensor(0.0).to(config["device"])
+        self.decay = torch.tensor(config["moving_avg_decay_rate"]).to(config["device"]) # 0.99
+        self.device = config["device"]
+            
+    def scale_batch(self, batch):
+        """ Returns the scaled batch and updates the moving averages. """
+        if not isinstance(batch, torch.Tensor):
+            batch = torch.Tensor(batch).to(self.device)
+        batch = torch.flatten(batch.detach())
+        
+        # calculate and update the 05 and 95 quantiles
+        qs = torch.quantile(batch, q=torch.tensor([0.05, 0.95]).to(dtype=batch.dtype).to(self.device))
+        self.quantile_05 = self.decay * self.quantile_05 + (1-self.decay) * qs[0]
+        self.quantile_95 = self.decay * self.quantile_95 + (1-self.decay) * qs[1]
+        
+        moving_scale = torch.max(torch.tensor(1.0), self.quantile_95 - self.quantile_05)
+        
+        scaled_batch = batch / moving_scale.detach()
+        return scaled_batch
+
+
 def save_image_and_reconstruction(x, x_pred, episode):
 
     config = load_config()

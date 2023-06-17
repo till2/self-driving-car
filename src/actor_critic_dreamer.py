@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch import distributions as dist
 
 from .mlp import MLP
-from .utils import load_config, to_np, symlog, symexp, twohot_encode
+from .utils import load_config, to_np, symlog, symexp, twohot_encode, ExponentialMovingAvg
 
 class ActorCriticDreamer(nn.Module):
     
@@ -47,11 +47,14 @@ class ActorCriticDreamer(nn.Module):
         print("Initializing critic.")
         self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
         print("\nInitializing actor.")
-        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian", weight_init="final_layer_zeros")
+        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian")
         
         # define optimizers for actor and critic
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
         self.actor_optim = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
+
+        # initial moving std for return normalization
+        self.ema = ExponentialMovingAvg()
 
         self.to(self.device)
     
@@ -104,7 +107,7 @@ class ActorCriticDreamer(nn.Module):
         ep_masks: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Computes the loss of actor and critic using GAE.
+        Computes the loss of actor and critic.
         """
 
         # append the last value pred and last critic_dist to the batch tensors (merge in dim 0. shape: [16,255] => [17,255])
@@ -125,9 +128,19 @@ class ActorCriticDreamer(nn.Module):
         critic_loss = - twohot_returns @ torch.log(batch_critic_dists).T
         critic_loss = torch.sum(torch.diag(critic_loss))
 
-        # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        # actor loss with normalization todo.
-        actor_loss = -(ep_log_probs * returns[:-1].detach()).mean() - self.ent_coef * ep_entropies.mean()
+        # normalize the returns with a moving average and calculate the actor loss
+        returns = returns[:-1] # cut off the last_value_pred
+        scaled_returns = self.ema.scale_batch(returns)
+        
+        # old:
+        # actor_loss = -(ep_log_probs * returns.detach()).mean() - self.ent_coef * ep_entropies.mean()
+
+        # reinforce
+        actor_loss = (- ep_log_probs * scaled_returns.detach()).sum() - self.ent_coef * ep_entropies.sum()
+        
+        # dynamics backprop
+        # actor_loss = - scaled_returns.detach().sum() - self.ent_coef * ep_entropies.sum()
+
         return critic_loss, actor_loss
 
     
@@ -135,15 +148,22 @@ class ActorCriticDreamer(nn.Module):
         self, critic_loss: torch.Tensor, actor_loss: torch.Tensor
     ) -> None:
 
+        total_loss = actor_loss + critic_loss
         self.critic_optim.zero_grad()
-        critic_loss.backward(retain_graph=True)
-        nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=self.max_grad_norm, norm_type=2)
-        self.critic_optim.step()
-
         self.actor_optim.zero_grad()
-        actor_loss.backward(retain_graph=True)
-        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        total_loss.backward(retain_graph=True)
+        self.critic_optim.step()
         self.actor_optim.step()
+
+        # self.critic_optim.zero_grad()
+        # critic_loss.backward(retain_graph=True)
+        # # nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        # self.critic_optim.step()
+
+        # self.actor_optim.zero_grad()
+        # actor_loss.backward(retain_graph=True)
+        # # nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        # self.actor_optim.step()
 
     def save_weights(self):
         os.makedirs("weights", exist_ok=True)

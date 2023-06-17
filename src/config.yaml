@@ -82,7 +82,9 @@ store_on_cpu: True
 # RL Agent (SB3)
 gamma: 0.997
 lam: 0.95 # lam=1 is Monte-Carlo (no bias, high variance), lam=0 is TD (high bias, no variance)
-ent_coef: 0.01
+ent_coef: 3e-4
+moving_avg_decay_rate: 0.99
+# actor_loss: "reinforce" # reinforce | dynamics_backprop
 verbose: 0
 imagination_progress_bar: True
 # action_clip: 1.0 # action range: [-action_clip, +action_clip] # uses half the action space with clip=0.5 
@@ -91,8 +93,8 @@ action_space_low: -1
 action_space_high: 1
 
 # ContinuousActorCritic
-critic_lr: 5e-4
-actor_lr: 1e-4
+critic_lr: 3e-5
+actor_lr: 3e-5
 
 # ActorCriticDreamer
 num_buckets: 255
