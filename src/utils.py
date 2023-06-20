@@ -102,7 +102,7 @@ class ExponentialMovingAvg():
         self.quantile_95 = self.decay * self.quantile_95 + (1-self.decay) * qs[1]
         
         moving_scale = torch.max(torch.tensor(1.0), self.quantile_95 - self.quantile_05)
-        
+
         scaled_batch = batch / moving_scale.detach()
         return scaled_batch
 

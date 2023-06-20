@@ -66,10 +66,9 @@ class ActorCriticDreamer(nn.Module):
         mu, var = self.actor(x)
         var = torch.clamp(var, min=1e-8)
         std = torch.sqrt(var)
-        std = torch.clamp(std, min=1e-8, max=1)
         
         action_pd = dist.Normal(mu, std)
-        actions = action_pd.sample()
+        actions = action_pd.rsample() # reparameterized
 
         action = torch.tanh(actions)
         actor_entropy = action_pd.entropy()
@@ -130,16 +129,18 @@ class ActorCriticDreamer(nn.Module):
 
         # normalize the returns with a moving average and calculate the actor loss
         returns = returns[:-1] # cut off the last_value_pred
+        baseline = ep_value_preds[:-1]
         scaled_returns = self.ema.scale_batch(returns)
         
         # old:
         # actor_loss = -(ep_log_probs * returns.detach()).mean() - self.ent_coef * ep_entropies.mean()
 
         # reinforce
-        actor_loss = (- ep_log_probs * scaled_returns.detach()).sum() - self.ent_coef * ep_entropies.sum()
+        # todo: the baseline is new. try if it works.
+        # actor_loss = (- ep_log_probs * (scaled_returns.detach() - baseline.detach())).sum() - self.ent_coef * ep_entropies.sum()
         
         # dynamics backprop
-        # actor_loss = - scaled_returns.detach().sum() - self.ent_coef * ep_entropies.sum()
+        actor_loss = - torch.sum(scaled_returns - self.ent_coef * ep_entropies)
 
         return critic_loss, actor_loss
 
