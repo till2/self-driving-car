@@ -53,12 +53,13 @@ class ActorCriticDreamer(nn.Module):
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
         self.actor_optim = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
 
-        # initial moving std for return normalization
+        # EMA for return normalization
         self.ema = ExponentialMovingAvg()
 
         self.to(self.device)
     
-    def get_action(self, x):
+
+    def get_action(self, x): # seems fine. maybe add std schedule instead of outputing it with the net.
 
         if not isinstance(x, torch.Tensor):
             x = torch.Tensor(x).to(self.device)
@@ -68,11 +69,11 @@ class ActorCriticDreamer(nn.Module):
         std = torch.sqrt(var)
         
         action_pd = dist.Normal(mu, std)
-        actions = action_pd.rsample() # reparameterized
+        unbounded_action = action_pd.rsample() # reparameterized
 
-        action = torch.tanh(actions)
+        action = torch.tanh(unbounded_action)
         actor_entropy = action_pd.entropy()
-        log_probs = action_pd.log_prob(actions)
+        log_probs = action_pd.log_prob(unbounded_action)
         log_probs -= torch.log(1 - action.pow(2) + 1e-8) # update logprobs because of tanh after sampling
         log_prob = log_probs.sum(0, keepdim=True) # reduce to a scalar
 
@@ -110,30 +111,44 @@ class ActorCriticDreamer(nn.Module):
         """
 
         # append the last value pred and last critic_dist to the batch tensors (merge in dim 0. shape: [16,255] => [17,255])
-        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(0).detach()), dim=0)
-        batch_critic_dists = torch.cat((batch_critic_dists, last_critic_dist.unsqueeze(0).detach()), dim=0)
-        returns = torch.zeros_like(ep_value_preds).to(self.device)
+        #ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(0).detach()), dim=0)
+        # batch_critic_dists = torch.cat((batch_critic_dists, last_critic_dist.unsqueeze(0).detach()), dim=0)
+        returns = torch.zeros_like(ep_rewards).to(self.device)
+        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(-1).detach()), dim=0)
 
         # compute bootstrapped lambda returns
+        # for t in reversed(range(len(returns))):
+        #     if t == len(returns)-1:
+        #         returns[t] = last_value_pred
+        #     else:
+        #         returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])        
+
         for t in reversed(range(len(returns))):
-            if t == len(returns)-1:
-                returns[t] = last_value_pred
-            else:
-                returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])        
+            returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
+
+    #######
+        # set up tensors for the advantage calculation
+        # returns = torch.zeros_like(ep_rewards).to(self.device)
+        # advantages = torch.zeros_like(ep_rewards).to(self.device)
+        # next_advantage = torch.zeros_like(last_value_pred)
+
+        # # calculate advantages using GAE
+        # for t in reversed(range(len(ep_rewards))):
+        #     returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
+        #     td_error = returns[t] - ep_value_preds[t]
+        #     advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
+    #######
 
         # two-hot encode the returns and calculate the critic loss
         twohot_returns = torch.stack([twohot_encode(r) for r in returns])
 
         critic_loss = - twohot_returns @ torch.log(batch_critic_dists).T
-        critic_loss = torch.sum(torch.diag(critic_loss))
+        critic_loss = torch.mean(torch.diag(critic_loss))
 
         # normalize the returns with a moving average and calculate the actor loss
         returns = returns[:-1] # cut off the last_value_pred
-        base = ep_value_preds[:-1]
-        scaled_returns = self.ema.scale_batch(returns)
-        scaled_base = self.ema.scale_batch(base)
-
-        advs = scaled_returns - scaled_base
+        # scaled_returns = self.ema.scale_batch(returns)
+        scaled_returns = returns # for testing
         
         # old:
         # actor_loss = -(ep_log_probs * returns.detach()).mean() - self.ent_coef * ep_entropies.mean()
@@ -142,8 +157,8 @@ class ActorCriticDreamer(nn.Module):
         # todo: the baseline is new. try if it works.
         # actor_loss = (- ep_log_probs * (scaled_returns.detach() - baseline.detach())).sum() - self.ent_coef * ep_entropies.sum()
         
-        # dynamics backprop # DELETE - BEFORE SUM!!!!!!!
-        actor_loss = - advs.sum() - self.ent_coef * ep_entropies.sum()
+        # dynamics backprop
+        actor_loss = - (ep_log_probs * scaled_returns.detach()).mean() - self.ent_coef * ep_entropies.mean()
 
         return critic_loss, actor_loss
 
@@ -152,22 +167,22 @@ class ActorCriticDreamer(nn.Module):
         self, critic_loss: torch.Tensor, actor_loss: torch.Tensor
     ) -> None:
 
-        total_loss = actor_loss + critic_loss
-        self.critic_optim.zero_grad()
-        self.actor_optim.zero_grad()
-        total_loss.backward(retain_graph=True)
-        self.critic_optim.step()
-        self.actor_optim.step()
-
+        # total_loss = actor_loss + critic_loss
         # self.critic_optim.zero_grad()
-        # critic_loss.backward(retain_graph=True)
-        # # nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=self.max_grad_norm, norm_type=2)
-        # self.critic_optim.step()
-
         # self.actor_optim.zero_grad()
-        # actor_loss.backward(retain_graph=True)
-        # # nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        # total_loss.backward(retain_graph=True)
+        # self.critic_optim.step()
         # self.actor_optim.step()
+
+        self.critic_optim.zero_grad()
+        critic_loss.backward(retain_graph=True)
+        # nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        self.critic_optim.step()
+
+        self.actor_optim.zero_grad()
+        actor_loss.backward(retain_graph=True)
+        # nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        self.actor_optim.step()
 
     def save_weights(self):
         os.makedirs("weights", exist_ok=True)
