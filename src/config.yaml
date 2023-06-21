@@ -29,7 +29,6 @@ n_envs: 1
 # Observations
 size: [64, 64] # [128, 128]
 grayscale: False
-symlog_rewards: True
 
 # Training
 start_episode: 1000 # if starting from a pretrained rssm (to skip the seed episodes)
@@ -93,8 +92,8 @@ action_space_low: -1
 action_space_high: 1
 
 # ContinuousActorCritic
-critic_lr: 3e-5
-actor_lr: 3e-5
+critic_lr: 1e-4
+actor_lr: 5e-5
 
 # ActorCriticDreamer
 num_buckets: 255

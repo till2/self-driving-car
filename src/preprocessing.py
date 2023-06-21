@@ -11,7 +11,11 @@ grayscale = config["grayscale"]
 height, width = config["size"]
 
 transform = transforms.Compose([
-    transforms.ToTensor(),
+    transforms.ToTensor(), # scales by 255 to [0,1]
+
+    # only do this later if I have time. would need to update sigmoid predictions of decoder as well.
+    # transforms.Lambda(lambda x: x - 0.5), # recenter to [-0.5, 0.5]
+    
     transforms.Lambda(lambda x: x.to(device)),
     transforms.Resize((height, width)),
     transforms.Grayscale() if grayscale else transforms.Lambda(lambda x: x),

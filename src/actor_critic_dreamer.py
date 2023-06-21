@@ -63,7 +63,7 @@ class ActorCriticDreamer(nn.Module):
         if not isinstance(x, torch.Tensor):
             x = torch.Tensor(x).to(self.device)
         
-        mu, var = self.actor(x)
+        mu, var = self.actor(x.detach())
         var = torch.clamp(var, min=1e-8)
         std = torch.sqrt(var)
         
@@ -129,8 +129,11 @@ class ActorCriticDreamer(nn.Module):
 
         # normalize the returns with a moving average and calculate the actor loss
         returns = returns[:-1] # cut off the last_value_pred
-        baseline = ep_value_preds[:-1]
+        base = ep_value_preds[:-1]
         scaled_returns = self.ema.scale_batch(returns)
+        scaled_base = self.ema.scale_batch(base)
+
+        advs = scaled_returns - scaled_base
         
         # old:
         # actor_loss = -(ep_log_probs * returns.detach()).mean() - self.ent_coef * ep_entropies.mean()
@@ -139,8 +142,8 @@ class ActorCriticDreamer(nn.Module):
         # todo: the baseline is new. try if it works.
         # actor_loss = (- ep_log_probs * (scaled_returns.detach() - baseline.detach())).sum() - self.ent_coef * ep_entropies.sum()
         
-        # dynamics backprop
-        actor_loss = - torch.sum(scaled_returns - self.ent_coef * ep_entropies)
+        # dynamics backprop # DELETE - BEFORE SUM!!!!!!!
+        actor_loss = - advs.sum() - self.ent_coef * ep_entropies.sum()
 
         return critic_loss, actor_loss
 
