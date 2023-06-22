@@ -109,10 +109,12 @@ class ExponentialMovingAvg():
 
 class ActionExponentialMovingAvg():
     
-    def __init__(self):
+    def __init__(self, n_actions=None):
         config = load_config()
-        self.decay = torch.tensor(0.9).to(config["device"]) # 0.99
-        self.action = torch.tensor(0.0).to(config["device"])
+        self.decay = torch.tensor(config["action_mov_avg_decay"]).to(config["device"]) # fraction of prev action that stays
+        if n_actions is None:
+            n_actions = config["A"]
+        self.action = torch.zeros(n_actions).to(config["device"])
         self.device = config["device"]
             
     def get_ema_action(self, action):

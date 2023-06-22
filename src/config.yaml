@@ -95,6 +95,9 @@ action_space_high: 1
 critic_lr: 1e-4
 actor_lr: 5e-5
 
+# DiscreteActorCritic
+action_mov_avg_decay: 0.5 # fraction of previous action that stays (higher values would lead to smoother control but slower reaction time)
+
 # ActorCriticDreamer
 num_buckets: 255
 min_bucket: -15
