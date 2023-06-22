@@ -107,6 +107,24 @@ class ExponentialMovingAvg():
         return scaled_batch
 
 
+class ActionExponentialMovingAvg():
+    
+    def __init__(self):
+        config = load_config()
+        self.decay = torch.tensor(0.9).to(config["device"]) # 0.99
+        self.action = torch.tensor(0.0).to(config["device"])
+        self.device = config["device"]
+            
+    def get_ema_action(self, action):
+        """ Returns the scaled batch and updates the moving averages. """
+        if not isinstance(action, torch.Tensor):
+            action = torch.Tensor(action).to(self.device)
+        
+        # calculate and update the 05 and 95 quantiles
+        self.action = self.decay * self.action + (1-self.decay) * action
+        return self.action
+
+
 def save_image_and_reconstruction(x, x_pred, episode):
 
     config = load_config()

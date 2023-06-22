@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch import distributions as dist
 
 from .mlp import MLP
-from .utils import load_config, to_np, symlog, symexp, twohot_encode, ExponentialMovingAvg
+from .utils import load_config, to_np, symlog, symexp, twohot_encode, ExponentialMovingAvg, ActionExponentialMovingAvg
 
 class DiscreteActorCritic(nn.Module):
     
@@ -46,7 +46,9 @@ class DiscreteActorCritic(nn.Module):
         self.num_buckets = config["num_buckets"]
         
         # action buckets
-        self.action_buckets = torch.tensor([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0]).to(self.device)
+        self.action_ema = ActionExponentialMovingAvg()
+        self.action = torch.tensor(0.0).to(self.device) # for discrete delta
+        self.action_buckets = torch.tensor([-0.3, -0.1, -0.03, 0.0, 0.03, 0.1, 0.3]).to(self.device)
         self.n_action_buckets = len(self.action_buckets)
 
         # define actor and critic nets
@@ -70,12 +72,15 @@ class DiscreteActorCritic(nn.Module):
         action_logits = action_logits.view(self.n_actions, self.n_action_buckets)
         action_pd = torch.distributions.Categorical(logits=action_logits) # implicitly uses softmax
         action_idxs = action_pd.sample()
-        action = self.action_buckets[action_idxs] # is a vector
+        action_delta = self.action_buckets[action_idxs] # is a vector
         actor_entropy = action_pd.entropy()
         log_prob = action_pd.log_prob(action_idxs).sum()
-        print(action)
 
-        return action, log_prob, actor_entropy
+        # apply discrete delta to prev action and update the action
+        config = load_config()
+        self.action = torch.clip(self.action + action_delta, min=config["action_space_low"], max=config["action_space_high"])
+
+        return self.action, log_prob, actor_entropy
 
     def apply_critic(self, x):
         """
