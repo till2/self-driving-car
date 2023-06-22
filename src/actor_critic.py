@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch import distributions as dist
 
 from .mlp import MLP
-from .utils import load_config, to_np, symlog, symexp
+from .utils import load_config, to_np, symlog, symexp, twohot_encode, ExponentialMovingAvg
 
 class ContinuousActorCritic(nn.Module):
     
@@ -40,10 +40,15 @@ class ContinuousActorCritic(nn.Module):
         self.max_grad_norm = config["max_grad_norm"]
         self.device = config["device"]
 
+        # critic buckets
+        self.min_bucket = config["min_bucket"]
+        self.max_bucket = config["max_bucket"]
+        self.num_buckets = config["num_buckets"]
+
         # define actor and critic nets
         self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions, out_type="gaussian")
-        
+
         # define optimizers for actor and critic
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
         self.actor_optim = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
@@ -70,13 +75,29 @@ class ContinuousActorCritic(nn.Module):
         log_prob = log_probs.sum(0, keepdim=True) # reduce to a scalar
 
         return action, log_prob, actor_entropy
+
+    def apply_critic(self, x):
+        """
+        x: a preprocessed observation
+        
+        Returns the predicted original return.
+        Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
+        """
+        if not isinstance(x, torch.Tensor):
+            x = torch.Tensor(x).to(self.device)
+        value_pred = self.critic(x)
+        critic_dist = torch.tensor(0)
+        return value_pred, critic_dist
+
     
     def get_loss(
         self,
         ep_rewards: torch.Tensor,
         ep_log_probs: torch.Tensor,
         ep_value_preds: torch.Tensor,
+        batch_critic_dists: torch.Tensor,
         last_value_pred: torch.Tensor,
+        last_critic_dist: torch.Tensor,
         ep_entropies: torch.Tensor,
         ep_masks: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -84,8 +105,9 @@ class ContinuousActorCritic(nn.Module):
         Computes the loss of actor and critic using GAE.
         """
 
+        # FROM ORIGINAL:
         # append the last value pred to the value preds tensor
-        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(1).detach()), dim=0)
+        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(-1).detach()), dim=0)
 
         # set up tensors for the advantage calculation
         returns = torch.zeros_like(ep_rewards).to(self.device)
@@ -97,7 +119,7 @@ class ContinuousActorCritic(nn.Module):
             returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
             td_error = returns[t] - ep_value_preds[t]
             advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
-        
+
         # calculate the critic loss
         critic_loss = advantages.pow(2).mean()
 

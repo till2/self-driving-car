@@ -28,7 +28,7 @@ class DiscreteActorCritic(nn.Module):
 
         # For testing on Pendulum-v1:
         self.n_features = 3
-        self.n_actions = 2
+        self.n_actions = 1
 
         # hyperparameters
         self.gamma = config["gamma"]
@@ -49,9 +49,6 @@ class DiscreteActorCritic(nn.Module):
         self.action_buckets = torch.tensor([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0]).to(self.device)
         self.n_action_buckets = len(self.action_buckets)
 
-        # EMA for return normalization
-        self.ema = ExponentialMovingAvg()
-
         # define actor and critic nets
         # self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
         self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
@@ -68,14 +65,15 @@ class DiscreteActorCritic(nn.Module):
         if not isinstance(x, torch.Tensor):
             x = torch.Tensor(x).to(self.device)
         
+        # THIS WORKS:
         action_logits = self.actor(x)
         action_logits = action_logits.view(self.n_actions, self.n_action_buckets)
         action_pd = torch.distributions.Categorical(logits=action_logits) # implicitly uses softmax
         action_idxs = action_pd.sample()
         action = self.action_buckets[action_idxs] # is a vector
-
         actor_entropy = action_pd.entropy()
-        log_prob = action_pd.log_prob(action_idxs).mean() # maybe sum?
+        log_prob = action_pd.log_prob(action_idxs).sum()
+        print(action)
 
         return action, log_prob, actor_entropy
 
@@ -131,10 +129,7 @@ class DiscreteActorCritic(nn.Module):
 
 
         # normalize the returns with a moving average and calculate the actor loss
-        # returns = returns[:-1] # cut off the last_value_pred
         # scaled_returns = self.ema.scale_batch(returns)
-        # advantages = returns # for testing
-    
 
         # FROM ORIGINAL:
         # # calculate the critic loss
@@ -161,14 +156,14 @@ class DiscreteActorCritic(nn.Module):
 
     def save_weights(self):
         os.makedirs("weights", exist_ok=True)
-        base_path = "weights/ContinuousActorCritic"
+        base_path = "weights/DiscreteActorCritic"
         index = 0
         while os.path.exists(f"{base_path}_{index}"):
             index += 1
         torch.save(self.state_dict(), f"{base_path}_{index}")
 
         
-    def load_weights(self, path="weights/ContinuousActorCritic", eval_mode=False):
+    def load_weights(self, path="weights/DiscreteActorCritic", eval_mode=False):
         self.load_state_dict(torch.load(path))
         if eval_mode:
             print("Set Agent to eval mode.")
