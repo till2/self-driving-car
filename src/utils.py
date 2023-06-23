@@ -117,13 +117,43 @@ class ActionExponentialMovingAvg():
         self.action = torch.zeros(n_actions).to(config["device"])
         self.device = config["device"]
             
-    def get_ema_action(self, action):
-        """ Returns the scaled batch and updates the moving averages. """
+    def get_smoothed_action(self, action):
+        """ Returns the EMA action and updates the moving average. """
         if not isinstance(action, torch.Tensor):
             action = torch.Tensor(action).to(self.device)
         
-        # calculate and update the 05 and 95 quantiles
         self.action = self.decay * self.action + (1-self.decay) * action
+        return self.action
+
+
+class PIDController():
+    
+    def __init__(self, n_actions=None, kp=0.7, ki=0.0, kd=0.0):
+        config = load_config()
+        if n_actions is None:
+            n_actions = config["A"]
+        self.action = torch.zeros(n_actions).to(config["device"])
+        self.target_action = torch.zeros(n_actions).to(config["device"])
+        self.prev_error = torch.zeros(n_actions).to(config["device"])
+        self.integral = torch.zeros(n_actions).to(config["device"])
+        self.kp = kp # proportional gain
+        self.ki = ki # integral gain
+        self.kd = kd # derivative gain
+        self.device = config["device"]
+            
+    def get_smoothed_action(self, target_action):
+        """ Returns the smoothed action using a PID controller. """
+        if not isinstance(target_action, torch.Tensor):
+            target_action = torch.Tensor(target_action).to(self.device)
+        
+        error = target_action - self.action
+        self.integral += error
+        derivative = error - self.prev_error
+        
+        self.action = self.action + self.kp * error + self.ki * self.integral + self.kd * derivative
+        
+        self.prev_error = error
+        
         return self.action
 
 

@@ -75,7 +75,7 @@ class DiscreteActorCritic(nn.Module):
         log_prob = action_pd.log_prob(action_idxs).sum()
 
         # update exponential moving average action for smooth control
-        action = self.action_ema.get_ema_action(action_target)
+        action = self.action_ema.get_smoothed_action(action_target)
 
         return action, log_prob, actor_entropy
         
