@@ -119,7 +119,7 @@ class ActorCriticDreamer(nn.Module):
         # compute bootstrapped lambda returns
         # for t in reversed(range(len(returns))):
         #     if t == len(returns)-1:
-        #         returns[t] = last_value_pred
+        #         returns[t] = ep_value_preds[t]
         #     else:
         #         returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])        
 
@@ -190,6 +190,7 @@ class ActorCriticDreamer(nn.Module):
         index = 0
         while os.path.exists(f"{base_path}_{index}"):
             index += 1
+        print(f"Saving agent weights to {base_path}_{index}")
         torch.save(self.state_dict(), f"{base_path}_{index}")
 
         

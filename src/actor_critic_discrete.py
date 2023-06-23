@@ -52,7 +52,6 @@ class DiscreteActorCritic(nn.Module):
 
         # define actor and critic nets
         self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
-        #self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions*self.n_action_buckets, out_type="linear")
         
         # define optimizers for actor and critic
@@ -79,22 +78,7 @@ class DiscreteActorCritic(nn.Module):
         action = self.action_ema.get_ema_action(action_target)
 
         return action, log_prob, actor_entropy
-
-    # THIS WORKS:
-    # def apply_critic(self, x):
-    #     """
-    #     x: a preprocessed observation
         
-    #     Returns the predicted original return.
-    #     Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
-    #     """
-    #     if not isinstance(x, torch.Tensor):
-    #         x = torch.Tensor(x).to(self.device)
-    #     value_pred = self.critic(x)
-    #     critic_dist = torch.tensor(0)
-    #     return value_pred, critic_dist
-
-    # CURRENT TEST:
     def apply_critic(self, x):
         """
         x: a preprocessed observation
@@ -117,7 +101,6 @@ class DiscreteActorCritic(nn.Module):
         ep_value_preds: torch.Tensor,
         batch_critic_dists: torch.Tensor,
         last_value_pred: torch.Tensor,
-        last_critic_dist: torch.Tensor,
         ep_entropies: torch.Tensor,
         ep_masks: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -136,29 +119,13 @@ class DiscreteActorCritic(nn.Module):
 
         # calculate advantages using GAE
         for t in reversed(range(len(ep_rewards))):
-            returns[t] = ep_rewards[t] + self.gamma * ep_value_preds[t+1] * ep_masks[t]
+            returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
             td_error = returns[t] - ep_value_preds[t]
             advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
 
-        ### TEST:
-        # two-hot encode the returns and calculate the critic loss
-        # twohot_returns = torch.stack([twohot_encode(r) for r in returns])
-        # critic_loss = - twohot_returns @ torch.log(batch_critic_dists).T
-        # critic_loss = torch.mean(torch.diag(critic_loss))
-
-
-        # normalize the returns with a moving average and calculate the actor loss
-        # scaled_returns = self.ema.scale_batch(returns)
-
-        # FROM ORIGINAL:
-        # # calculate the critic loss
-        # THIS WORKS:
-        # critic_loss = advantages.pow(2).mean()
-        # CURRENT TEST:
-        twohot_returns = torch.stack([twohot_encode(r) for r in returns])
-
         # categorical crossentropy (should be fine, I checked.)
-        critic_loss = - twohot_returns.detach() @ torch.log(batch_critic_dists).T # CURRENT EXPERIMENT: ADDED DETACH LIKE D-V3 PAPER
+        twohot_returns = torch.stack([twohot_encode(r) for r in returns])
+        critic_loss = - twohot_returns.detach() @ torch.log(batch_critic_dists).T
         critic_loss = torch.sum(torch.diag(critic_loss))
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
@@ -186,6 +153,7 @@ class DiscreteActorCritic(nn.Module):
         index = 0
         while os.path.exists(f"{base_path}_{index}"):
             index += 1
+        print(f"Saving agent weights to {base_path}_{index}")
         torch.save(self.state_dict(), f"{base_path}_{index}")
 
         

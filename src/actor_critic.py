@@ -148,6 +148,7 @@ class ContinuousActorCritic(nn.Module):
         index = 0
         while os.path.exists(f"{base_path}_{index}"):
             index += 1
+        print(f"Saving agent weights to {base_path}_{index}")
         torch.save(self.state_dict(), f"{base_path}_{index}")
 
         

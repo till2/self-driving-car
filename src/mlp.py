@@ -82,7 +82,6 @@ class MLP(nn.Module):
             elif activation:
                 layer.add_module("2", activation)
 
-
             # init the weights of the final layer to zeros
             if (i == self.n_layers - 1) and (weight_init == "final_layer_zeros"):
                 print(f"Adding zero weight init to the output layer.")
