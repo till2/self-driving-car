@@ -45,15 +45,14 @@ class DiscreteActorCritic(nn.Module):
         self.max_bucket = config["max_bucket"]
         self.num_buckets = config["num_buckets"]
         
-        # action buckets
+        # use discrete action targets with EMA for smooth control
         self.action_ema = ActionExponentialMovingAvg(n_actions=self.n_actions)
-        self.action = torch.tensor(0.0).to(self.device) # for discrete delta
         self.action_buckets = torch.tensor([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0]).to(self.device)
         self.n_action_buckets = len(self.action_buckets)
 
         # define actor and critic nets
-        # self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
-        self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
+        self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
+        #self.critic = MLP(input_dims=self.n_features, output_dims=1, out_type="linear")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions*self.n_action_buckets, out_type="linear")
         
         # define optimizers for actor and critic
@@ -81,6 +80,21 @@ class DiscreteActorCritic(nn.Module):
 
         return action, log_prob, actor_entropy
 
+    # THIS WORKS:
+    # def apply_critic(self, x):
+    #     """
+    #     x: a preprocessed observation
+        
+    #     Returns the predicted original return.
+    #     Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
+    #     """
+    #     if not isinstance(x, torch.Tensor):
+    #         x = torch.Tensor(x).to(self.device)
+    #     value_pred = self.critic(x)
+    #     critic_dist = torch.tensor(0)
+    #     return value_pred, critic_dist
+
+    # CURRENT TEST:
     def apply_critic(self, x):
         """
         x: a preprocessed observation
@@ -90,10 +104,11 @@ class DiscreteActorCritic(nn.Module):
         """
         if not isinstance(x, torch.Tensor):
             x = torch.Tensor(x).to(self.device)
-        value_pred = self.critic(x)
-        critic_dist = torch.tensor(0)
-        return value_pred, critic_dist
 
+        buckets = torch.linspace(self.min_bucket, self.max_bucket, self.num_buckets).to(self.device)
+        value_pred = symexp(self.critic(x) @ buckets)
+        critic_dist = self.critic(x)
+        return value_pred, critic_dist
     
     def get_loss(
         self,
@@ -137,7 +152,14 @@ class DiscreteActorCritic(nn.Module):
 
         # FROM ORIGINAL:
         # # calculate the critic loss
-        critic_loss = advantages.pow(2).mean()
+        # THIS WORKS:
+        # critic_loss = advantages.pow(2).mean()
+        # CURRENT TEST:
+        twohot_returns = torch.stack([twohot_encode(r) for r in returns])
+
+        # categorical crossentropy (should be fine, I checked.)
+        critic_loss = - twohot_returns.detach() @ torch.log(batch_critic_dists).T # CURRENT EXPERIMENT: ADDED DETACH LIKE D-V3 PAPER
+        critic_loss = torch.sum(torch.diag(critic_loss))
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
         actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies.mean()
