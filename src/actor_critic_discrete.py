@@ -63,7 +63,7 @@ class DiscreteActorCritic(nn.Module):
     def get_action(self, x):
 
         if not isinstance(x, torch.Tensor):
-            x = torch.Tensor(x).to(self.device)
+            x = torch.tensor(x).to(self.device)
         
         # THIS WORKS:
         action_logits = self.actor(x)
@@ -87,7 +87,7 @@ class DiscreteActorCritic(nn.Module):
         Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
         """
         if not isinstance(x, torch.Tensor):
-            x = torch.Tensor(x).to(self.device)
+            x = torch.tensor(x).to(self.device)
 
         buckets = torch.linspace(self.min_bucket, self.max_bucket, self.num_buckets).to(self.device)
         value_pred = symexp(self.critic(x) @ buckets)
@@ -96,17 +96,19 @@ class DiscreteActorCritic(nn.Module):
     
     def get_loss(
         self,
-        ep_rewards: torch.Tensor,
-        ep_log_probs: torch.Tensor,
-        ep_value_preds: torch.Tensor,
-        batch_critic_dists: torch.Tensor,
+        episode_batches: dict,
         last_value_pred: torch.Tensor,
-        ep_entropies: torch.Tensor,
-        ep_masks: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Computes the loss of actor and critic using GAE.
         """
+
+        ep_rewards = episode_batches["rewards"]
+        ep_log_probs = episode_batches["log_probs"]
+        ep_value_preds = episode_batches["value_preds"]
+        batch_critic_dists = episode_batches["critic_dists"]
+        ep_entropies = episode_batches["entropies"]
+        ep_masks = episode_batches["masks"]
 
         # FROM ORIGINAL:
         # append the last value pred to the value preds tensor

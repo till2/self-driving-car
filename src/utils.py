@@ -12,6 +12,9 @@ from gymnasium.wrappers import TimeLimit, AutoResetWrapper
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 
+from typing import Dict, List, Union
+
+from torch.utils.tensorboard import SummaryWriter
 
 to_np = lambda x: x.detach().cpu().numpy()
 
@@ -155,6 +158,75 @@ class PIDController():
         self.prev_error = error
         
         return self.action
+
+
+class MetricsTracker():
+    
+    def __init__(self, training_metrics: List[str] = None, episode_metrics: List[str] = None):
+        config = load_config()
+        self.log_interval = config["log_interval"]
+        self.log_dir = config["log_dir"]
+        self.device = config["device"]
+        
+        self.training_metrics = dict()
+        self.episode_metrics = dict()
+        
+        # init training metrics dict
+        if training_metrics:
+            for name in training_metrics:
+                self.training_metrics[name] = list()
+        
+        # init episode metrics dict
+        if episode_metrics:
+            for name in episode_metrics:
+                self.episode_metrics[name] = list()
+
+        # tensorboard setup        
+        self.writer = SummaryWriter(self.log_dir)        
+        
+    def add(self, 
+            training_metrics: Dict[str, torch.Tensor] = None, 
+            episode_metrics: Dict[str, torch.Tensor] = None
+           ):
+        """ This method is called every step. Adds metrics to the tracker. 
+            Note: All dtypes are torch.tensor """
+        
+        if training_metrics:
+            for name, value in training_metrics.items():
+                # convert to tensor
+                if not isinstance(value, torch.Tensor):
+                    value = torch.tensor(value).to(self.device)
+                
+                # add to list
+                self.training_metrics[name].append(value)
+
+        if episode_metrics:
+            for name, value in episode_metrics.items():
+                # convert to tensor
+                if not isinstance(value, torch.Tensor):
+                    value = torch.tensor(value).to(self.device)
+                
+                # add to list
+                self.episode_metrics[name].append(value)
+            
+    def get_episode_batches(self) -> Dict[str, torch.Tensor]:
+        """ Returns a dictionary of all tracked episode metrics as a stacked tensor and then resets the batches."""
+        episode_metrics = dict()
+        
+        for name, batch in self.episode_metrics.items():
+            # stack the batch as a tensor
+            episode_metrics[name] = torch.stack(batch)
+            
+            # reset the batch
+            self.episode_metrics[name] = []
+
+        return episode_metrics
+    
+    def log_to_tensorboard(self, step):
+        """ This method is called every log_interval steps. Logs the metrics to tensorboard. """
+        for name, batch in self.training_metrics.items():
+            self.writer.add_scalar(name, batch[-1].item(), global_step=step)
+
 
 
 def save_image_and_reconstruction(x, x_pred, episode):

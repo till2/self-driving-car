@@ -1,6 +1,5 @@
 # Setup
 debug: False
-show_inline_tensorboard: False 
 log_dir: "logs/"
 log_interval: 5 # log every 50 steps
 seed: 0
