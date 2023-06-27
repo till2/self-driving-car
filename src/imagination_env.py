@@ -28,14 +28,13 @@ class ImaginationEnv(gym.Env):
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
         self.num_categoricals = config["num_categoricals"]
         self.num_classes = config["num_classes"]
-        self.action_clip = config["action_clip"]
         self.max_imagination_episode_steps = config["max_imagination_episode_steps"]
         self.device = config["device"]
 
         # define action and observation space
         # they must be gym.spaces objects
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.H + self.Z,), dtype=np.float32)
-        self.action_space = spaces.Box(low=-self.action_clip, high=self.action_clip, shape=(self.A,), dtype=np.float32)
+        self.action_space = spaces.Box(low=config["action_space_low"], high=config["action_space_high"], shape=(self.A,), dtype=np.float32)
         
         # set a counter for truncation
         self.step_counter = 0
@@ -98,7 +97,9 @@ class ImaginationEnv(gym.Env):
         info = {}
         return observation, reward, terminated, truncated, info
     
-    def reset(self):
+    def reset(self, seed=0, options=None):
+
+        np.random.seed(seed)
 
         # reset the step counter for episode truncation
         self.step_counter = 0

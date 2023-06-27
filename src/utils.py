@@ -209,13 +209,18 @@ class MetricsTracker():
                 # add to list
                 self.episode_metrics[name].append(value)
             
-    def get_episode_batches(self) -> Dict[str, torch.Tensor]:
+    def get_episode_batches(self, reduction=None) -> Dict[str, torch.Tensor]:
         """ Returns a dictionary of all tracked episode metrics as a stacked tensor and then resets the batches."""
         episode_metrics = dict()
         
         for name, batch in self.episode_metrics.items():
             # stack the batch as a tensor
             episode_metrics[name] = torch.stack(batch)
+
+            if reduction == "mean":
+                episode_metrics[name] = torch.mean(episode_metrics[name])
+            if reduction == "sum":
+                episode_metrics[name] = torch.sum(episode_metrics[name])
             
             # reset the batch
             self.episode_metrics[name] = []

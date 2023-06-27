@@ -27,6 +27,7 @@ class RSSM(nn.Module):
         self.dyn_loss_coeff = config["dyn_loss_coeff"]
         self.rep_loss_coeff = config["rep_loss_coeff"]
         self.free_nats = config["free_nats"]
+        self.max_grad_norm = config["max_grad_norm"]
 
         # init the VAE
         self.vae = CategoricalVAE()
@@ -66,7 +67,7 @@ class RSSM(nn.Module):
 
         # rssm step:
         # concatenate the rnn_input and apply RNN to obtain the next hidden state
-        rnn_input = torch.cat((action, h, z), 1)
+        rnn_input = torch.cat((action, h, z), 1).float()
         # linear in
         _, h = self.rnn(rnn_input, h)
         # linear out  
@@ -104,6 +105,12 @@ class RSSM(nn.Module):
         
         return {"loss": loss, "image_loss": image_loss, "reward_loss": reward_loss, 
                 "continue_loss": continue_loss, "dyn_loss": dyn_loss, "rep_loss": rep_loss}
+    
+    def update_parameters(self, loss):
+        self.optim.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.parameters(), max_norm=self.max_grad_norm, norm_type=2)
+        self.optim.step()
     
     def save_weights(self, filename):
         os.makedirs("weights", exist_ok=True)
