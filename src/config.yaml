@@ -1,7 +1,7 @@
 # Setup
 debug: False
 log_dir: "logs/"
-log_interval: 5 # log every 50 steps
+log_interval: 20
 seed: 0
 device: "cuda:0" # "cuda:0" | "cpu"
 
