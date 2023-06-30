@@ -37,8 +37,11 @@ class RSSM(nn.Module):
         self.rnn = nn.GRU(input_size=self.A + self.H + self.Z, hidden_size=self.H, num_layers=self.num_rnn_layers)
         
         # init MLPs
+        print("\nInitializing dynamics_mlp.")
         self.dynamics_mlp = MLP(input_dims=self.H, output_dims=self.Z) # H -> Z
+        print("\nInitializing reward_mlp.")
         self.reward_mlp = MLP(input_dims=self.H + self.Z, output_dims=1, weight_init="final_layer_zeros") # state (H+Z) -> 1
+        print("\nInitializing continue_mlp.")
         self.continue_mlp = MLP(input_dims=self.H + self.Z, output_dims=1, out_type="sigmoid") # state (H+Z)->1 into bernoulli
 
         # init the optimizer

@@ -11,7 +11,7 @@ from gymnasium import spaces
 from PIL import Image
 
 from gymnasium.experimental.wrappers import RescaleActionV0
-from gymnasium.wrappers import TimeLimit, AutoResetWrapper
+from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit, AutoResetWrapper
 
 from .replay_buffer import ReplayBuffer
 from .preprocessing import transform
@@ -156,6 +156,9 @@ def make_imagination_env(rssm, replay_buffer, render_mode):
         replay_buffer,
         render_mode
     )
+    print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
+    env = RecordEpisodeStatistics(env, deque_size=config["n_model_updates"])
+
     print("Adding a TimeLimit wrapper with %d max imagination episode steps." % config["max_imagination_episode_steps"])
     env = TimeLimit(env, max_episode_steps=config["max_imagination_episode_steps"])
 

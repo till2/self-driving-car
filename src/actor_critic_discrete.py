@@ -17,18 +17,16 @@ class DiscreteActorCritic(nn.Module):
         
         config = load_config()
 
-        # if config["toy_env"]:
-        #     self.n_features = config["Z"]
-        # else:
-        #     self.n_features = config["H"] + config["Z"]
-        # self.n_actions = config["A"]
+        # For using with the world model:
+        self.n_features = config["H"] + config["Z"]
+        self.n_actions = config["A"]
 
-        ### for using with an autoencoder:
+        # For using with an autoencoder:
         # self.n_features = config["Z"]
 
         # For testing on Pendulum-v1:
-        self.n_features = 3
-        self.n_actions = 1
+        # self.n_features = 3
+        # self.n_actions = 1
 
         # hyperparameters
         self.gamma = config["gamma"]
@@ -51,7 +49,9 @@ class DiscreteActorCritic(nn.Module):
         self.n_action_buckets = len(self.action_buckets)
 
         # define actor and critic nets
+        print("Initializing critic.")
         self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
+        print("\nInitializing actor.")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions*self.n_action_buckets, out_type="linear")
         
         # define optimizers for actor and critic

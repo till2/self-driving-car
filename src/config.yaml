@@ -30,12 +30,13 @@ size: [64, 64] # [128, 128]
 grayscale: False
 
 # Training
-start_phase: 0 # 0 | 1000 if starting from a pretrained rssm (to skip the seed episodes)
+start_phase: 1000 # 0 | 1000 if starting from a pretrained rssm (to skip the seed episodes)
 n_seed_phases: 1000
-n_model_updates: 500000
+n_model_updates: 7812 # 7812 * 64 ~= 500k
 n_steps_per_model_update: 64
+agent_update_phases_per_model_update: 5
 max_imagination_episode_steps: 16
-imagination_timesteps_per_model_update: 200
+imagination_steps_per_agent_update: 128
 max_grad_norm: 100
 
 # RSSM
