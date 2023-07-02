@@ -21,8 +21,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run tests
-        run: python tests/test_src.py
+      - name: Run discrete actor critic tests
+        run: python tests/test_discrete_actor_critic.py
+
+      - name: Run RSSM tests
+        run: python tests/test_rssm.py
 
       - name: Cache dependencies
         uses: actions/cache@v2

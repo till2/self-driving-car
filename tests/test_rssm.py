@@ -12,8 +12,6 @@ from operator import itemgetter
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-print(sys.path)
-
 import gym_donkeycar
 import gymnasium as gym
 import imageio
@@ -41,8 +39,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from tqdm import tqdm
 
-# import gym.spaces as gym_spaces
-import gymnasium as gym  # overwrite OpenAI gym
+import gymnasium as gym
 
 # suppress warnings
 import warnings
@@ -81,9 +78,6 @@ from src.vae import VAE
 
 
 torch.cuda.empty_cache()
-#%matplotlib inline
-#%load_ext autoreload
-#%autoreload 2
 
 # Load the config
 config = load_config()
@@ -91,61 +85,50 @@ for key in config:
     locals()[key] = config[key]
 
 
-
-# Example test class:
-#
-#class TestAddition(unittest.TestCase):
-#    
-#    def addition(self,x,y):
-#        return x+y
-#    
-#    def test_addition(self):
-#        self.assertEqual(self.addition(1,2), 3)
-
-
-class TestDiscreteActorCritic(unittest.TestCase):
+class TestRSSM(unittest.TestCase):
 
     def setUp(self):
+        print("Run rssm tests...")
         # create an agent
-        self.test_agent = DiscreteActorCritic()
+        # self.test_agent = DiscreteActorCritic()
          
-    def test_critic(self):
-        """
-        Tests:
-        - output shapes
-        - that the critic softmax dist sums to 1
-        """
+    # def test_critic(self):
+    #     """
+    #     Tests:
+    #     - output shapes
+    #     - that the critic softmax dist sums to 1
+    #     """
         
-        #
-        # test for a single instance
-        #
-        sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
-        value_pred, critic_dist = self.test_agent.apply_critic(sample_instance)
+    #     #
+    #     # test for a single instance
+    #     #
+    #     sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
+    #     value_pred, critic_dist = self.test_agent.apply_critic(sample_instance)
 
-        # value_pred should be a scalar without shape
-        self.assertEqual(value_pred.shape, torch.Size([]))
+    #     # value_pred should be a scalar without shape
+    #     self.assertEqual(value_pred.shape, torch.Size([]))
 
-        # critic_dist should have shape (num_buckets)
-        self.assertEqual(critic_dist.shape, torch.Size([config["num_buckets"]]))
+    #     # critic_dist should have shape (num_buckets)
+    #     self.assertEqual(critic_dist.shape, torch.Size([config["num_buckets"]]))
 
-        #
-        # test for a batch
-        #
-        sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
-        value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
+    #     #
+    #     # test for a batch
+    #     #
+    #     sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
+    #     value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
 
-        # value_pred should have shape (batch_size)
-        self.assertEqual(value_pred.shape, torch.Size([32]))
+    #     # value_pred should have shape (batch_size)
+    #     self.assertEqual(value_pred.shape, torch.Size([32]))
 
-        # critic_dist should have shape (batch_size, num_buckets)
-        self.assertEqual(critic_dist.shape, torch.Size([32, config["num_buckets"]]))
+    #     # critic_dist should have shape (batch_size, num_buckets)
+    #     self.assertEqual(critic_dist.shape, torch.Size([32, config["num_buckets"]]))
 
-        #
-        # test that the softmax sum is 1 for every instance in the batch
-        #
-        softmax_sum = critic_dist.sum(dim=-1)
-        expected_sum = torch.ones(32).to(config["device"])
-        self.assertTrue(torch.allclose(softmax_sum, expected_sum))
+    #     #
+    #     # test that the softmax sum is 1 for every instance in the batch
+    #     #
+    #     softmax_sum = critic_dist.sum(dim=-1)
+    #     expected_sum = torch.ones(32).to(config["device"])
+    #     self.assertTrue(torch.allclose(softmax_sum, expected_sum))
 
 
 if __name__ == "__main__":
