@@ -81,10 +81,19 @@ class DiscreteActorCritic(nn.Module):
         
     def apply_critic(self, x):
         """
-        x: a preprocessed observation
-        
-        Returns the predicted original return.
-        Because the critic is trained to predict symlog returns, the prediction needs to be symexp'd.
+        Applies the critic to a preprocessed observation.
+
+        Args:
+            x (torch.Tensor or np.ndarray): A preprocessed observation.
+
+        Returns:
+            value_pred (torch.Tensor): The predicted original return. The prediction is symexp'd.
+                Shape: (batch_size,)
+            critic_dist (torch.Tensor): The distribution over buckets predicted by the critic.
+                Shape: (batch_size, num_buckets)
+
+        Notes:
+            - The critic is trained to predict symlog returns, so the prediction needs to be symexp'd.
         """
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x).to(self.device)
