@@ -114,20 +114,37 @@ class ExponentialMovingAvg():
 
 class ActionExponentialMovingAvg():
     
-    def __init__(self, n_actions=None):
+    def __init__(self):
         config = load_config()
         self.decay = torch.tensor(config["action_mov_avg_decay"]).to(config["device"]) # fraction of prev action that stays
-        if n_actions is None:
-            n_actions = config["A"]
-        self.action = torch.zeros(n_actions).to(config["device"])
+        self.action = None
         self.device = config["device"]
+    
+    def reset(self):
+        """ Resets the EMA action. 
+            Calling this method is required when the batch size changes (e.g. from training to inference) 
+            to avoid shape mismatches between previous actions and the current action. """
+        self.action = None
             
     def get_smoothed_action(self, action):
-        """ Returns the EMA action and updates the moving average. """
+        """ Returns the EMA action and updates the moving average. 
+            Automatically resets the EMA when shape mismatches occur to avoid throwing an error. """
         if not isinstance(action, torch.Tensor):
-            action = torch.Tensor(action).to(self.device)
+            action = torch.Tensor(action)
+        action = action.to(self.device)
+
+        if action is None:
+            raise TypeError(f"Action should be torch.tensor or array-like, but got {action}")
+
+        # reset the EMA automatically when the batch sizes changes
+        if self.action.shape != action.shape:
+            self.reset()
         
-        self.action = self.decay * self.action + (1-self.decay) * action
+        # update the EMA
+        if self.action is None:
+            self.action = action
+        else:
+            self.action = self.decay * self.action + (1-self.decay) * action
         return self.action
 
 
