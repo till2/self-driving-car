@@ -11,6 +11,7 @@ from collections import deque
 from operator import itemgetter
 
 sys.path.insert(1, '..')
+print(sys.path)
 
 import gym_donkeycar
 import gymnasium as gym
@@ -61,7 +62,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
-#import src
+import src
 from src.actor_critic_discrete import DiscreteActorCritic
 from src.actor_critic_dreamer import ActorCriticDreamer
 from src.actor_critic import ContinuousActorCritic
