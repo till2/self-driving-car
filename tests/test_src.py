@@ -3,10 +3,6 @@ from typing import Dict, List, Union
 
 import unittest
 
-import sys
-sys.path.append("/home/till/Desktop/GitHub/self-driving-car/")
-sys.path.append("/home/till/Desktop/GitHub/self-driving-car/src")
-
 import logging
 import os
 import random
@@ -14,7 +10,7 @@ import sys
 from collections import deque
 from operator import itemgetter
 
-print(sys.version)
+sys.path.insert(1, '..')
 
 import gym_donkeycar
 import gymnasium as gym
@@ -65,7 +61,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
-import src
+#import src
 from src.actor_critic_discrete import DiscreteActorCritic
 from src.actor_critic_dreamer import ActorCriticDreamer
 from src.actor_critic import ContinuousActorCritic
@@ -109,7 +105,7 @@ class TestDiscreteActorCritic(unittest.TestCase):
 
     def setUp(self):
         # create an agent
-        self.test_agent = src.actor_critic_discrete.DiscreteActorCritic()
+        self.test_agent = DiscreteActorCritic()
          
     def test_critic(self):
         """
