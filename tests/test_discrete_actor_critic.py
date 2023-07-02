@@ -96,7 +96,7 @@ class TestDiscreteActorCritic(unittest.TestCase):
         """
         Tests:
         - output shapes
-        - that the critic softmax dist sums to 1
+        - that the critic softmax distributions sum to 1
         """
         sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"])  # torch.Size([1536])
         sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
@@ -121,12 +121,40 @@ class TestDiscreteActorCritic(unittest.TestCase):
         expected_sum = torch.ones([32]).to(config["device"])
         self.assertTrue(torch.allclose(softmax_sum, expected_sum))
 
+        # test for a second batch of observations as input (to see whether the action_ema can switch batch sizes)
+        sample_batch = torch.randn(5, config["H"] + config["Z"]).to(config["device"]) # torch.Size([5, 1536])
+
+        value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
+        self.assertEqual(value_pred.shape, torch.Size([5])) # value_pred should have shape (batch_size,)
+        self.assertEqual(critic_dist.shape, torch.Size([5, config["num_buckets"]])) # critic_dist should have shape (batch_size, num_buckets)
+
+        # test for the batch of observations that the softmax sum is 1 (to see whether the action_ema can switch batch sizes)
+        softmax_sum = critic_dist.sum(dim=1)
+        expected_sum = torch.ones([5]).to(config["device"])
+        self.assertTrue(torch.allclose(softmax_sum, expected_sum))
+
     def test_actor(self):
-        #
-        # test for a single observation as input
-        #
+        """
+        Tests:
+        - output shapes
+        - that all logprobs are <= 0 (because log(1) = 0)
+        """
         sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
         sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
+
+        # test for a single observation as input
+        action, log_prob, actor_entropy = self.test_agent.get_action(sample_instance)
+        self.assertEqual(action.shape, torch.Size([1, config["A"]])) # action should have shape (batch_size, A)
+        self.assertEqual(log_prob.shape, torch.Size([1])) # log_prob should have shape (batch_size,)
+        self.assertEqual(actor_entropy.shape, torch.Size([1])) # actor_entropy should have shape (batch_size,)
+        self.assertEqual(torch.all(log_prob <= 0).item(), True)
+
+        # test for a batch of observations as input
+        action, log_prob, actor_entropy = self.test_agent.get_action(sample_batch)
+        self.assertEqual(action.shape, torch.Size([32, config["A"]])) # action should have shape (batch_size, A)
+        self.assertEqual(log_prob.shape, torch.Size([32])) # log_prob should have shape (batch_size,)
+        self.assertEqual(actor_entropy.shape, torch.Size([32])) # actor_entropy should have shape (batch_size,)
+        self.assertEqual(torch.all(log_prob <= 0).item(), True)
 
 
 if __name__ == "__main__":

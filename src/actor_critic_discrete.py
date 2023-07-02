@@ -69,9 +69,11 @@ class DiscreteActorCritic(nn.Module):
 
         Returns:
             action (torch.Tensor): The sampled action (with a stochastic policy).
-                Shape: ()
+                Shape: (batch_size, A)
             log_prob (torch.Tensor): The logarithm of the probability of the generated action (required for the loss calculation).
+                Shape: (batch_size,)
             actor_entropy (torch.Tensor): The entropy of the actor's distribution (useful for encouraging exploration in the loss).
+                Shape: (batch_size,)
 
         Notes:
             - The generated action is smoothed using an exponential moving average to avoid jitter in the controls.
