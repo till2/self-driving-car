@@ -44,7 +44,7 @@ class DiscreteActorCritic(nn.Module):
         self.num_buckets = config["num_buckets"]
         
         # use discrete action targets with EMA for smooth control
-        self.action_ema = ActionExponentialMovingAvg(n_actions=self.n_actions)
+        self.action_ema = ActionExponentialMovingAvg()
         self.action_buckets = torch.tensor([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0]).to(self.device)
         self.n_action_buckets = len(self.action_buckets)
 
@@ -61,18 +61,36 @@ class DiscreteActorCritic(nn.Module):
         self.to(self.device)
     
     def get_action(self, x):
+        """
+        Selects a continuous action between -1 and 1 based on the given observation. 
+
+        Args:
+            x (torch.Tensor or np.ndarray): The preprocessed observation.
+
+        Returns:
+            action (torch.Tensor): The sampled action (with a stochastic policy).
+                Shape: ()
+            log_prob (torch.Tensor): The logarithm of the probability of the generated action (required for the loss calculation).
+            actor_entropy (torch.Tensor): The entropy of the actor's distribution (useful for encouraging exploration in the loss).
+
+        Notes:
+            - The generated action is smoothed using an exponential moving average to avoid jitter in the controls.
+            - The batch size should stay consistent over the duration of training, 
+              because new actions have to match the shape of old actions for the exponential moving average
+        """
 
         if not isinstance(x, torch.Tensor):
-            x = torch.tensor(x).to(self.device)
+            x = torch.tensor(x)
+        x = x.to(self.device)
         
         # THIS WORKS:
         action_logits = self.actor(x)
-        action_logits = action_logits.view(self.n_actions, self.n_action_buckets)
+        action_logits = action_logits.view(-1, self.n_actions, self.n_action_buckets)
         action_pd = torch.distributions.Categorical(logits=action_logits) # implicitly uses softmax
         action_idxs = action_pd.sample()
         action_target = self.action_buckets[action_idxs] # is a vector
-        actor_entropy = action_pd.entropy()
-        log_prob = action_pd.log_prob(action_idxs).sum()
+        actor_entropy = action_pd.entropy().mean(dim=1) # mean over entries of the action-vector
+        log_prob = action_pd.log_prob(action_idxs).sum(dim=1) # sum over entries of the action-vector
 
         # update exponential moving average action for smooth control
         action = self.action_ema.get_smoothed_action(action_target)
@@ -84,7 +102,7 @@ class DiscreteActorCritic(nn.Module):
         Applies the critic to a preprocessed observation.
 
         Args:
-            x (torch.Tensor or np.ndarray): A preprocessed observation.
+            x (torch.Tensor or np.ndarray): The preprocessed observation.
 
         Returns:
             value_pred (torch.Tensor): The predicted original return. The prediction is symexp'd.
@@ -96,7 +114,8 @@ class DiscreteActorCritic(nn.Module):
             - The critic is trained to predict symlog returns, so the prediction needs to be symexp'd.
         """
         if not isinstance(x, torch.Tensor):
-            x = torch.tensor(x).to(self.device)
+            x = torch.tensor(x)
+        x = x.to(self.device)
 
         buckets = torch.linspace(self.min_bucket, self.max_bucket, self.num_buckets).to(self.device)
         value_pred = symexp(self.critic(x) @ buckets)
@@ -140,7 +159,7 @@ class DiscreteActorCritic(nn.Module):
         critic_loss = torch.sum(torch.diag(critic_loss))
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies.mean()
+        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies # was: ep_entropies.mean()
         return critic_loss, actor_loss
 
     
