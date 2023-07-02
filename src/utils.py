@@ -61,7 +61,9 @@ def twohot_encode(x):
 
 def load_config():
     yaml = YAML(typ='safe')
-    file_path = os.path.expanduser('~/Desktop/self-driving-car/src/config.yaml')
+    # file_path = os.path.expanduser('~/Desktop/self-driving-car/src/config.yaml')
+    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    file_path = os.path.join(parent_dir, "src/config.yaml")
     with open(file_path, "r") as file:
         static_params = yaml.load(file)
 

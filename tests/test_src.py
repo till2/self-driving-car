@@ -41,7 +41,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from tqdm import tqdm
 
-import gym.spaces as gym_spaces
+# import gym.spaces as gym_spaces
 import gymnasium as gym  # overwrite OpenAI gym
 
 # suppress warnings
