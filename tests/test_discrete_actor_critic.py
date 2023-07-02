@@ -91,44 +91,42 @@ class TestDiscreteActorCritic(unittest.TestCase):
         print("Run discrete actor critic tests...")
         # create an agent
         self.test_agent = DiscreteActorCritic()
-         
+
     def test_critic(self):
         """
         Tests:
         - output shapes
         - that the critic softmax dist sums to 1
         """
+        sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"])  # torch.Size([1536])
+        sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
+
+        # test for a single observation as input
+        value_pred, critic_dist = self.test_agent.apply_critic(sample_instance)
+        self.assertEqual(value_pred.shape, torch.Size([1])) # value_pred should have shape (batch_size,)
+        self.assertEqual(critic_dist.shape, torch.Size([1, config["num_buckets"]])) # critic_dist should have shape (batch_size, num_buckets)
         
+        # test for the single instance that the softmax sum is 1
+        softmax_sum = critic_dist.sum(dim=1)
+        expected_sum = torch.ones([1]).to(config["device"])
+        self.assertTrue(torch.allclose(softmax_sum, expected_sum))
+
+        # test for a batch of observations as input
+        value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
+        self.assertEqual(value_pred.shape, torch.Size([32])) # value_pred should have shape (batch_size,)
+        self.assertEqual(critic_dist.shape, torch.Size([32, config["num_buckets"]])) # critic_dist should have shape (batch_size, num_buckets)
+
+        # test for the batch of observations that the softmax sum is 1
+        softmax_sum = critic_dist.sum(dim=1)
+        expected_sum = torch.ones([32]).to(config["device"])
+        self.assertTrue(torch.allclose(softmax_sum, expected_sum))
+
+    def test_actor(self):
         #
-        # test for a single instance
+        # test for a single observation as input
         #
         sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
-        value_pred, critic_dist = self.test_agent.apply_critic(sample_instance)
-
-        # value_pred should be a scalar without shape
-        self.assertEqual(value_pred.shape, torch.Size([]))
-
-        # critic_dist should have shape (num_buckets)
-        self.assertEqual(critic_dist.shape, torch.Size([config["num_buckets"]]))
-
-        #
-        # test for a batch
-        #
         sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
-        value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
-
-        # value_pred should have shape (batch_size)
-        self.assertEqual(value_pred.shape, torch.Size([32]))
-
-        # critic_dist should have shape (batch_size, num_buckets)
-        self.assertEqual(critic_dist.shape, torch.Size([32, config["num_buckets"]]))
-
-        #
-        # test that the softmax sum is 1 for every instance in the batch
-        #
-        softmax_sum = critic_dist.sum(dim=-1)
-        expected_sum = torch.ones(32).to(config["device"])
-        self.assertTrue(torch.allclose(softmax_sum, expected_sum))
 
 
 if __name__ == "__main__":

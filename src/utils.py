@@ -130,16 +130,16 @@ class ActionExponentialMovingAvg():
         """ Returns the EMA action and updates the moving average. 
             Automatically resets the EMA when shape mismatches occur to avoid throwing an error. """
         if not isinstance(action, torch.Tensor):
-            action = torch.Tensor(action)
+            action = torch.tensor(action)
         action = action.to(self.device)
 
         if action is None:
             raise TypeError(f"Action should be torch.tensor or array-like, but got {action}")
-
-        # reset the EMA automatically when the batch sizes changes
-        if self.action.shape != action.shape:
-            self.reset()
         
+        # reset the EMA automatically when the batch sizes changes
+        if self.action is not None and self.action.shape != action.shape:
+            self.reset()
+
         # update the EMA
         if self.action is None:
             self.action = action
@@ -166,7 +166,8 @@ class PIDController():
     def get_smoothed_action(self, target_action):
         """ Returns the smoothed action using a PID controller. """
         if not isinstance(target_action, torch.Tensor):
-            target_action = torch.Tensor(target_action).to(self.device)
+            target_action = torch.tensor(target_action)
+        target_action.to(self.device)
         
         error = target_action - self.action
         self.integral += error

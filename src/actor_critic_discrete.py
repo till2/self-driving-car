@@ -89,11 +89,12 @@ class DiscreteActorCritic(nn.Module):
         action_pd = torch.distributions.Categorical(logits=action_logits) # implicitly uses softmax
         action_idxs = action_pd.sample()
         action_target = self.action_buckets[action_idxs] # is a vector
-        actor_entropy = action_pd.entropy().mean(dim=1) # mean over entries of the action-vector
+        actor_entropy = action_pd.entropy().sum(dim=1) # sum over entries of the action-vector
         log_prob = action_pd.log_prob(action_idxs).sum(dim=1) # sum over entries of the action-vector
 
         # update exponential moving average action for smooth control
         action = self.action_ema.get_smoothed_action(action_target)
+        action = action.view(-1, self.n_actions) # (B,A)
 
         return action, log_prob, actor_entropy
         
@@ -119,7 +120,9 @@ class DiscreteActorCritic(nn.Module):
 
         buckets = torch.linspace(self.min_bucket, self.max_bucket, self.num_buckets).to(self.device)
         value_pred = symexp(self.critic(x) @ buckets)
+        value_pred = value_pred.view(-1) # (B,)
         critic_dist = self.critic(x)
+        critic_dist = critic_dist.view(-1, self.num_buckets) # (B, num_buckets)
         return value_pred, critic_dist
     
     def get_loss(

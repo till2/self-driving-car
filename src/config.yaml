@@ -23,7 +23,7 @@ font_size: 30
 sb3_monitor: False
 toy_env: True
 vectorized: True
-n_envs: 1
+n_envs: 1 # todo: fix vectorized envs (doesn't work currently with n_envs>1)
 
 # Observations
 size: [64, 64] # [128, 128]

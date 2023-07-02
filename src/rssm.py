@@ -21,6 +21,7 @@ class RSSM(nn.Module):
         self.A, self.H, self.Z = itemgetter("A", "H", "Z")(config)
         self.num_categoricals = config["num_categoricals"]
         self.num_classes = config["num_classes"]
+        self.device = config["device"]
 
         # loss hyperparameters
         self.pred_loss_coeff = config["pred_loss_coeff"]
@@ -49,15 +50,17 @@ class RSSM(nn.Module):
         self.rssm_l2_regularization = config["rssm_l2_regularization"]
         self.optim = optim.Adam(self.parameters(), lr=self.rssm_lr, weight_decay=self.rssm_l2_regularization)
 
-        self.to(config["device"])
+        self.to(self.device)
     
     def step(self, action, h, z):
         h = h.view(-1, self.H)
+        h = h.to(self.device)
+        z = z.to(self.device)
 
         # convert the action to a tensor
         if not isinstance(action, torch.Tensor):
             action = torch.tensor(action)
-        action = action.to(h.device).view(1, self.A) # (1,A)
+        action = action.to(self.device).view(1, self.A) # (1,A)
 
         # reconstruct the image
         x_reconstruction = self.vae.decode(h, z)
