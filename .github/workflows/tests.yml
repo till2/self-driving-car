@@ -15,8 +15,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: debug
-        run: ls
+      - name: Update pip
+        run: pip install --upgrade pip
 
       - name: Install dependencies
         run: pip install -r requirements.txt
