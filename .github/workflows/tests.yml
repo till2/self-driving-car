@@ -29,7 +29,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run DiscreteActorCritic tests
+      - name: Run two-hot encoding tests
+        run: python tests/test_two_hot_encoding.py
+
+      - name: Run discrete actor critic tests
         run: python tests/test_discrete_actor_critic.py
 
       - name: Run RSSM tests
