@@ -12,21 +12,16 @@ from .utils import load_config, to_np, symlog, symexp, twohot_encode, Exponentia
 
 class DiscreteActorCritic(nn.Module):
     
-    def __init__(self):
+    def __init__(self, n_features=None, n_actions=None):
         super().__init__()
         
         config = load_config()
 
         # For using with the world model:
-        self.n_features = config["H"] + config["Z"]
-        self.n_actions = config["A"]
-
-        # For using with an autoencoder:
-        # self.n_features = config["Z"]
-
-        # For testing on Pendulum-v1:
-        # self.n_features = 3
-        # self.n_actions = 1
+        self.n_features = config["H"] + config["Z"] if n_features is None else n_features
+        self.n_actions = config["A"] if n_actions is None else n_actions
+        
+        print(f"Initializing agent with {self.n_features} features and {self.n_actions} actions.")
 
         # hyperparameters
         self.gamma = config["gamma"]
@@ -51,7 +46,7 @@ class DiscreteActorCritic(nn.Module):
         # define actor and critic nets
         print("Initializing critic.")
         self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
-        print("\nInitializing actor.")
+        print("Initializing actor.")
         self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions*self.n_action_buckets, out_type="linear")
         
         # define optimizers for actor and critic
@@ -62,18 +57,20 @@ class DiscreteActorCritic(nn.Module):
     
     def get_action(self, x):
         """
-        Selects a continuous action between -1 and 1 based on the given observation. 
+        Selects a continuous action betw
+        een -1 and 1 based on the given observation. 
 
         Args:
             x (torch.Tensor or np.ndarray): The preprocessed observation.
+                Shape: (B, NUM_FEATURES)
 
         Returns:
             action (torch.Tensor): The sampled action (with a stochastic policy).
-                Shape: (batch_size, A)
+                Shape: (B, A)
             log_prob (torch.Tensor): The logarithm of the probability of the generated action (required for the loss calculation).
-                Shape: (batch_size,)
+                Shape: (B,)
             actor_entropy (torch.Tensor): The entropy of the actor's distribution (useful for encouraging exploration in the loss).
-                Shape: (batch_size,)
+                Shape: (B,)
 
         Notes:
             - The generated action is smoothed using an exponential moving average to avoid jitter in the controls.
@@ -106,12 +103,13 @@ class DiscreteActorCritic(nn.Module):
 
         Args:
             x (torch.Tensor or np.ndarray): The preprocessed observation.
+                Shape: (B, NUM_FEATURES)
 
         Returns:
             value_pred (torch.Tensor): The predicted original return. The prediction is symexp'd.
-                Shape: (batch_size,)
+                Shape: (B,)
             critic_dist (torch.Tensor): The distribution over buckets predicted by the critic.
-                Shape: (batch_size, num_buckets)
+                Shape: (B, NUM_BUCKETS)
 
         Notes:
             - The critic is trained to predict symlog returns, so the prediction needs to be symexp'd.
@@ -129,11 +127,33 @@ class DiscreteActorCritic(nn.Module):
     
     def get_loss(
         self,
-        episode_batches: dict,
+        episode_batches: dict[torch.Tensor],
         last_value_pred: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Computes the loss of actor and critic using GAE.
+
+        Args:
+            episode_batches: dict that includes:
+                rewards (torch.Tensor):
+                    Shape: (SEQ_LEN, B)
+                log_probs (torch.Tensor):
+                    Shape: (SEQ_LEN, B)
+                value_preds (torch.Tensor):
+                    Shape: (SEQ_LEN, B)
+                critic_dists (torch.Tensor):
+                    Shape: (SEQ_LEN, B, NUM_BUCKETS)
+                entropies (torch.Tensor):
+                    Shape: (SEQ_LEN, B)
+                masks (torch.Tensor):
+                    Shape: (SEQ_LEN, B)
+
+            last_value_pred (torch.Tensor):
+                Shape: (B,)
+
+        Returns:
+            actor_loss (torch.Tensor)
+            critic_loss (torch.Tensor)
         """
 
         ep_rewards = episode_batches["rewards"]
@@ -145,18 +165,19 @@ class DiscreteActorCritic(nn.Module):
 
         # FROM ORIGINAL:
         # append the last value pred to the value preds tensor
-        ep_value_preds = torch.cat((ep_value_preds, last_value_pred.unsqueeze(-1).detach()), dim=0)
+        last_value_pred = last_value_pred.unsqueeze(0).detach() # (1, B)
+        ep_value_preds = torch.cat((ep_value_preds, last_value_pred), dim=0) # (SEQ_LEN+1, B)
 
         # set up tensors for the advantage calculation
-        returns = torch.zeros_like(ep_rewards).to(self.device)
-        advantages = torch.zeros_like(ep_rewards).to(self.device)
-        next_advantage = torch.zeros_like(last_value_pred)
+        returns = torch.zeros_like(ep_rewards).to(self.device) # (SEQ_LEN, B)
+        advantages = torch.zeros_like(ep_rewards).to(self.device) # (SEQ_LEN, B)
+        next_advantage = torch.zeros_like(last_value_pred) # (1, B)
 
         # calculate advantages using GAE
         for t in reversed(range(len(ep_rewards))):
             returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
             td_error = returns[t] - ep_value_preds[t]
-            advantages[t] = next_advantage = td_error + self.gamma * self.lam * next_advantage * ep_masks[t]
+            advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
 
         # categorical crossentropy (should be fine, I checked.)
         twohot_returns = torch.stack([twohot_encode(r) for r in returns])

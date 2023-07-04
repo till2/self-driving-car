@@ -36,27 +36,53 @@ def symexp(r):
 
 def twohot_encode(x):
     """
-    x: the original return
-    Returns the twohot encoded symlog return as a (255,) vector.
+    Computes the twohot encoded symlog returns.
+    
+    Args:
+        x (torch.Tensor): the original returns (scalar or vector of values) to be encoded
+            Shape: (B,)
+    
+    Returns:
+        encoded (torch.Tensor): the encoded symlog returns as a vector
+            Shape: (B, NUM_BUCKETS)
+    
+    Notes:
+        - note that the returns are automatically symlogged before the two-hot encoding
     """
     config = load_config()
-    buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(config["device"])
-    encoded = torch.zeros_like(buckets).to(config["device"])
     
-    # symlog transform the value
-    x = symlog(x)
+    if not isinstance(x, torch.Tensor):
+        x = torch.tensor(x)
+    x = x.to(config["device"])
+    
+    # add an empty dim for scalar inputs
+    if not len(x.shape):
+        x = x.view(-1)
+        
+    buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(config["device"])
+    
+    # symlog transform the values
+    values = symlog(x)
 
-    if x < buckets[0]:
-        encoded[0] = 1.0
-    elif x > buckets[-1]:
-        encoded[-1] = 1.0
-    else:
-        # index: right bucket (k+1 in the DreamerV3 paper), index-1: left bucket (k in the DreamerV3 paper)
-        index = torch.searchsorted(buckets, x, side="right") # index: buckets[index-1] <= v < buckets[index]
-        weight = (buckets[index] - x) / (buckets[index] - buckets[index-1])
-        encoded[index-1] = weight
-        encoded[index] = 1 - weight
+    # clip values at the borders to ensure they lie within the bucket range
+    clipped_values = torch.clamp(values, buckets[0], buckets[-1])
+
+    # calculate the index of the right bucket (k+1) and left bucket (k) for each value
+    index = torch.searchsorted(buckets, clipped_values, side="right")
+    left_bucket_index = torch.clamp(index - 1, 0, buckets.shape[0] - 1)
+    right_bucket_index = torch.clamp(index, 0, buckets.shape[0] - 1)
+
+    # calculate the weights
+    weight = (buckets[right_bucket_index] - clipped_values) / (buckets[right_bucket_index] - buckets[left_bucket_index])
+    weight = torch.clamp(weight, 0.0, 1.0)  # Ensure weights are within [0, 1]
+
+    # create the one-hot encoding for each value
+    encoded = torch.zeros((x.shape[0], buckets.shape[0])).to(config["device"])
+    encoded.scatter_add_(1, left_bucket_index.unsqueeze(1), weight.unsqueeze(1))
+    encoded.scatter_add_(1, right_bucket_index.unsqueeze(1), 1 - weight.unsqueeze(1))
+
     return encoded
+
 
 
 def load_config():
@@ -291,11 +317,18 @@ def save_image_and_reconstruction(x, x_pred, episode):
 
 
 def make_env():
+    """
+    Creates environments with observation shapes:
+        Shape in vectorized=False mode: (*OBS_SHAPE)
+        Shape in vectorized=True mode: (NUM_ENVS,*OBS_SHAPE)
+    """
 
     config = load_config()
     
+    print("Creating environment with properties:")
+
     if config["toy_env"]:
-        print("Making a toy env.")
+        print("- type: toy env")
         make_one_env = lambda: gym.make(
             "CarRacing-v2", 
             render_mode="rgb_array",
@@ -303,7 +336,7 @@ def make_env():
         )
 
     else:
-        print("Making a donkey sim env.")
+        print("- type: donkey sim env")
 
         sim_config = {
             # sim: fixed settings
@@ -335,37 +368,34 @@ def make_env():
                 "conf": sim_config
             })
     
+    # helper functions to automatically reset individual envs after max_episode_steps
+    print("- adding a TimeLimit wrapper with %d max episode steps" % config["max_episode_steps"])
+    print("- adding an AutoReset wrapper")
+    make_time_limit_env = lambda: gym.wrappers.TimeLimit(make_one_env(), max_episode_steps=config["max_episode_steps"])
+    make_auto_reset_env = lambda: gym.wrappers.AutoResetWrapper(make_time_limit_env())
+
     if config["vectorized"]:
         n_envs = config["n_envs"]
 
-        print(f"Making {n_envs} vectorized envs.")
         if config["sb3_monitor"]:
-            print("Wrapping the env in a SB3 Monitor wrapper to record episode statistics.")
-            env = DummyVecEnv([lambda: Monitor(make_one_env())] * n_envs)
+            print("- wrapping the env in a SB3 Monitor wrapper to record episode statistics")
+            env = DummyVecEnv([lambda: Monitor(make_auto_reset_env())] * n_envs)
         else:
-            print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
-            env = gym.wrappers.RecordEpisodeStatistics(
-                make_one_env(), 
-                deque_size=config["n_envs"] * config["n_updates"],
-            )
-        
+            print(f"- making a AsyncVectorEnv with {n_envs} envs")
+            env = gym.vector.AsyncVectorEnv([lambda: make_auto_reset_env() for i in range(n_envs)])
     else:
-        print("Making a non-vectorized env.")
-        print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
-        env = gym.wrappers.RecordEpisodeStatistics(
-            make_one_env(), 
-            deque_size=config["n_updates"],
-        )
-    
-    print("Adding a TimeLimit wrapper with %d max episode steps." % config["max_episode_steps"])
-    env = gym.wrappers.TimeLimit(env, max_episode_steps=config["max_episode_steps"])
+        print("- making a non-vectorized env")
+        env = make_auto_reset_env()
 
-    print("Adding an AutoReset wrapper.")
-    env = gym.wrappers.AutoResetWrapper(env)
-
-    print("Adding a RescaleActionV0 wrapper.", end=" ")
+    print("- adding a RescaleActionV0 wrapper", end=" ")
     env = RescaleActionV0(env, min_action=config["action_space_low"], max_action=config["action_space_high"])
-    print("Low:", env.action_space.low, end=", ")
-    print("High:", env.action_space.high)
+    print("Low:", config["action_space_low"], end=", ")
+    print("High:", config["action_space_high"])
+
+    print("- adding a Gymnasium RecordEpisodeStatistics wrapper")
+    env = gym.wrappers.RecordEpisodeStatistics(
+        env, 
+        deque_size=config["n_envs"] * config["n_updates"] if config["vectorized"] else config["n_updates"],
+    )
 
     return env

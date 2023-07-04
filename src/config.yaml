@@ -22,8 +22,8 @@ font_size: 30
 # Vectorized Envs
 sb3_monitor: False
 toy_env: True
-vectorized: True
-n_envs: 1 # todo: fix vectorized envs (doesn't work currently with n_envs>1)
+vectorized: True # should always be True because we need a batch shape
+n_envs: 5
 
 # Observations
 size: [64, 64] # [128, 128]
@@ -37,7 +37,6 @@ n_steps_per_model_update: 64
 agent_update_phases_per_model_update: 5
 max_imagination_episode_steps: 16
 imagination_steps_per_agent_update: 128
-max_grad_norm: 100
 
 # RSSM
 rssm_lr: 1e-4
@@ -49,6 +48,7 @@ H: 512
 uniform_ratio: 0.01
 buffer_size: 50_000 # for Dreamer (latent vectors); reduce the size if storing images for the vae (for vae baselines)
 activation: "silu" # "silu", "elu", "relu"
+max_grad_norm: 100
 
 # Categorical VAE
 num_categoricals: 32

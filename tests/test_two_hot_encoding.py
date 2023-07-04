@@ -84,51 +84,46 @@ for key in config:
     locals()[key] = config[key]
 
 
-class TestRSSM(unittest.TestCase):
+class TestTwoHotEncoding(unittest.TestCase):
 
     def setUp(self):
-        print("Run rssm tests...")
-        # create an agent
-        # self.test_agent = DiscreteActorCritic()
-         
-    # def test_critic(self):
-    #     """
-    #     Tests:
-    #     - output shapes
-    #     - that the critic softmax dist sums to 1
-    #     """
+        print("Run two-hot encoding tests...")
+
+    def test_critic(self):
+        """
+        Tests:
+        - the symlog two-hot encodings for a few examples (for scalar and vector inputs)
+        - that the function is reversible with symexp (for scalar and vector inputs)
+        """
         
-    #     #
-    #     # test for a single instance
-    #     #
-    #     sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
-    #     value_pred, critic_dist = self.test_agent.apply_critic(sample_instance)
+        # test the encoding for scalar example 1/2
+        solution = torch.zeros(1,255).to(config["device"])
+        solution[0, 74] = 0.6395
+        solution[0, 75] = 0.3605
+        self.assertEqual(torch.isclose(twohot_encode(-500.33), solution, atol=1e-4).all().item(), True)
 
-    #     # value_pred should be a scalar without shape
-    #     self.assertEqual(value_pred.shape, torch.Size([]))
+        # test the encoding for scalar example 2/2
+        solution = torch.zeros(1,255).to(config["device"])
+        solution[0, 158] = 0.1552
+        solution[0, 159] = 0.8448
+        self.assertEqual(torch.isclose(twohot_encode(42), solution, atol=1e-4).all().item(), True)
 
-    #     # critic_dist should have shape (num_buckets)
-    #     self.assertEqual(critic_dist.shape, torch.Size([config["num_buckets"]]))
+        # test the shape of a vector encoding
+        self.assertEqual(twohot_encode(42.0).shape, torch.Size([1, config["num_buckets"]])) # (1,255)
+        self.assertEqual(twohot_encode([42.0]).shape, torch.Size([1, config["num_buckets"]])) # (1,255)
+        self.assertEqual(twohot_encode([-500.33, 42, 1, 2]).shape, torch.Size([4, config["num_buckets"]])) # (4,255)
 
-    #     #
-    #     # test for a batch
-    #     #
-    #     sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
-    #     value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
+        # test whether the encoding is invertible (with symexp and dot-product with buckets) for a scalar example
+        buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(config["device"])
+        result = symexp(twohot_encode(0.01) @ buckets)
+        solution = torch.tensor([0.01]).to(config["device"])
+        self.assertEqual(torch.isclose(result, solution).all().item(), True)
 
-    #     # value_pred should have shape (batch_size)
-    #     self.assertEqual(value_pred.shape, torch.Size([32]))
-
-    #     # critic_dist should have shape (batch_size, num_buckets)
-    #     self.assertEqual(critic_dist.shape, torch.Size([32, config["num_buckets"]]))
-
-    #     #
-    #     # test that the softmax sum is 1 for every instance in the batch
-    #     #
-    #     softmax_sum = critic_dist.sum(dim=-1)
-    #     expected_sum = torch.ones(32).to(config["device"])
-    #     self.assertTrue(torch.allclose(softmax_sum, expected_sum))
-
+        # test whether the encoding is invertible (with symexp and dot-product with buckets) for a vector example
+        buckets = torch.linspace(config["min_bucket"], config["max_bucket"], config["num_buckets"]).to(config["device"])
+        result = symexp(twohot_encode([-100_000.1, 10.25, 0.42, 500.33]) @ buckets)
+        solution = torch.tensor([-100_000.1, 10.25, 0.42, 500.33]).to(config["device"])
+        self.assertEqual(torch.isclose(result, solution).all().item(), True)
 
 if __name__ == "__main__":
     unittest.main()

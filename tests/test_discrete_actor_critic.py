@@ -62,7 +62,6 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 import src
 from src.actor_critic_discrete import DiscreteActorCritic
-from src.actor_critic_dreamer import ActorCriticDreamer
 from src.actor_critic import ContinuousActorCritic
 from src.blocks import CategoricalStraightThrough, ConvBlock
 from src.categorical_vae import CategoricalVAE
