@@ -47,7 +47,7 @@ class DiscreteActorCritic(nn.Module):
         print("Initializing critic.")
         self.critic = MLP(input_dims=self.n_features, output_dims=config["num_buckets"], out_type="softmax", weight_init="final_layer_zeros")
         print("Initializing actor.")
-        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions*self.n_action_buckets, out_type="linear")
+        self.actor = MLP(input_dims=self.n_features, output_dims=self.n_actions*self.n_action_buckets, out_type="linear", weight_init="final_layer_zeros")
         
         # define optimizers for actor and critic
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
@@ -81,8 +81,8 @@ class DiscreteActorCritic(nn.Module):
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x)
         x = x.to(self.device)
-        
-        # THIS WORKS:
+
+        # get stochastic action
         action_logits = self.actor(x)
         action_logits = action_logits.view(-1, self.n_actions, self.n_action_buckets)
         action_pd = torch.distributions.Categorical(logits=action_logits) # implicitly uses softmax
@@ -165,7 +165,7 @@ class DiscreteActorCritic(nn.Module):
 
         # FROM ORIGINAL:
         # append the last value pred to the value preds tensor
-        last_value_pred = last_value_pred.unsqueeze(0).detach() # (1, B)
+        last_value_pred = last_value_pred.view(1,-1).detach() # (1, B)
         ep_value_preds = torch.cat((ep_value_preds, last_value_pred), dim=0) # (SEQ_LEN+1, B)
 
         # set up tensors for the advantage calculation
@@ -180,14 +180,31 @@ class DiscreteActorCritic(nn.Module):
             advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
 
         # categorical crossentropy (should be fine, I checked.)
-        twohot_returns = torch.stack([twohot_encode(r) for r in returns])
-        critic_loss = - twohot_returns.detach() @ torch.log(batch_critic_dists).T
-        critic_loss = torch.sum(torch.diag(critic_loss))
+        twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # (SEQ_LEN, B, NUM_BUCKETS)
+        ### critic_loss = - twohot_returns.detach() @ torch.log(batch_critic_dists).T
+        ### critic_loss = torch.sum(torch.diag(critic_loss))
+        
+        critic_loss = self._calculate_critic_loss(twohot_returns, batch_critic_dists)
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies # was: ep_entropies.mean()
+        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies # edit this line to get a scalar
         return critic_loss, actor_loss
-
+    
+    def _calculate_critic_loss(self, twohot_returns, batch_critic_dists):
+        """
+        Args:
+            twohot_returns (torch.Tensor):
+                Shape: (SEQ_LENGTH, B, NUM_BUCKETS)
+        
+        Returns:
+            critic_loss (torch.Tensor):
+                Shape: scalar - in other words (,)
+        """
+        twohot_returns = twohot_returns.permute(1, 0, 2)
+        batch_critic_dists = batch_critic_dists.permute(1, 0, 2)
+        critic_loss = -torch.sum(twohot_returns.detach() * torch.log(batch_critic_dists), dim=(1, 2))
+        critic_loss = torch.mean(critic_loss)
+        return critic_loss
     
     def update_parameters(
         self, critic_loss: torch.Tensor, actor_loss: torch.Tensor

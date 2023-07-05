@@ -78,6 +78,7 @@ def twohot_encode(x):
 
     # create the one-hot encoding for each value
     encoded = torch.zeros((x.shape[0], buckets.shape[0])).to(config["device"])
+    weight = weight.to(encoded.dtype)
     encoded.scatter_add_(1, left_bucket_index.unsqueeze(1), weight.unsqueeze(1))
     encoded.scatter_add_(1, right_bucket_index.unsqueeze(1), 1 - weight.unsqueeze(1))
 
@@ -276,7 +277,7 @@ class MetricsTracker():
     def log_to_tensorboard(self, step):
         """ This method is called every log_interval steps. Logs the metrics to tensorboard. """
         for name, batch in self.training_metrics.items():
-            print("Tracker: Adding", name, "to step", step) # debug. delete after experiment.
+            print("MetricsTracker: Adding", name, "to step", step) # debug. delete after experiment.
             self.writer.add_scalar(name, batch[-1].item(), global_step=step)
 
 

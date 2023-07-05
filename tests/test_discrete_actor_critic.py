@@ -155,6 +155,33 @@ class TestDiscreteActorCritic(unittest.TestCase):
         self.assertEqual(actor_entropy.shape, torch.Size([32])) # actor_entropy should have shape (batch_size,)
         self.assertEqual(torch.all(log_prob <= 0).item(), True)
 
+    def test_calculate_critic_loss(self):
+
+        # set up a twohot_returns sample and batch_critic_dists sample
+        twohot_returns = torch.zeros(16, 1, 255).to(config["device"])
+        for i in range(16):
+            twohot_returns[i,0,30] = 0.83
+            twohot_returns[i,0,31] = 0.17
+        torch.manual_seed(0)
+        batch_critic_dists = torch.rand(16, 1, 255).to(config["device"])
+        batch_critic_dists = F.softmax(batch_critic_dists, dim=2)
+
+        result = self.test_agent._calculate_critic_loss(twohot_returns, batch_critic_dists)
+        self.assertEqual(torch.isclose(result, torch.tensor(89.5558)).item(), True)
+
+        # batch of samples
+        twohot_returns = torch.zeros(16, 7, 255).to(config["device"])
+        for i in range(16):
+            twohot_returns[i,:,30] = 0.83 * torch.ones(7).to(config["device"])
+            twohot_returns[i,:,31] = 0.17 * torch.ones(7).to(config["device"])
+        batch_critic_dists = torch.ones(16, 7, 255).to(config["device"])
+        batch_critic_dists = F.softmax(batch_critic_dists, dim=2)
+
+        result = self.test_agent._calculate_critic_loss(twohot_returns, batch_critic_dists)
+        self.assertEqual(torch.isclose(result, torch.tensor(88.6602)).item(), True)
+
+        # test the shape
+        self.assertEqual(result.shape, torch.Size([])) # should be a scalar (without shape)
 
 if __name__ == "__main__":
     unittest.main()
