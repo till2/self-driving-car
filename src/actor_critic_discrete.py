@@ -131,7 +131,7 @@ class DiscreteActorCritic(nn.Module):
         last_value_pred: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Computes the loss of actor and critic using GAE.
+        Computes the loss of critic and actor using GAE.
 
         Args:
             episode_batches: dict that includes:
@@ -152,8 +152,8 @@ class DiscreteActorCritic(nn.Module):
                 Shape: (B,)
 
         Returns:
-            actor_loss (torch.Tensor)
             critic_loss (torch.Tensor)
+            actor_loss (torch.Tensor)
         """
 
         ep_rewards = episode_batches["rewards"]
@@ -180,18 +180,18 @@ class DiscreteActorCritic(nn.Module):
             advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
 
         # categorical crossentropy (should be fine, I checked.)
-        twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # (SEQ_LEN, B, NUM_BUCKETS)
-        ### critic_loss = - twohot_returns.detach() @ torch.log(batch_critic_dists).T
-        ### critic_loss = torch.sum(torch.diag(critic_loss))
-        
+        twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # (SEQ_LEN, B, NUM_BUCKETS)        
         critic_loss = self._calculate_critic_loss(twohot_returns, batch_critic_dists)
 
         # calculate the actor loss using the policy gradient theorem and give an entropy bonus
-        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies # edit this line to get a scalar
+        actor_loss = -(ep_log_probs * advantages.detach()).mean() - self.ent_coef * ep_entropies.mean()
         return critic_loss, actor_loss
     
     def _calculate_critic_loss(self, twohot_returns, batch_critic_dists):
         """
+        Calculates the mean categorical cross-entropy loss of a batch of gradient-detached
+        targets (twohot_returns) and the predictions (batch_critic_dists).
+
         Args:
             twohot_returns (torch.Tensor):
                 Shape: (SEQ_LENGTH, B, NUM_BUCKETS)
@@ -200,10 +200,10 @@ class DiscreteActorCritic(nn.Module):
             critic_loss (torch.Tensor):
                 Shape: scalar - in other words (,)
         """
-        twohot_returns = twohot_returns.permute(1, 0, 2)
-        batch_critic_dists = batch_critic_dists.permute(1, 0, 2)
-        critic_loss = -torch.sum(twohot_returns.detach() * torch.log(batch_critic_dists), dim=(1, 2))
-        critic_loss = torch.mean(critic_loss)
+        twohot_returns = twohot_returns.permute(1, 0, 2) # => (B, SEQ_LENGTH, NUM_BUCKETS)
+        batch_critic_dists = batch_critic_dists.permute(1, 0, 2) # => (B, SEQ_LENGTH, NUM_BUCKETS)
+        critic_loss = -torch.sum(twohot_returns.detach() * torch.log(batch_critic_dists), dim=(1, 2)) # => (B,)
+        critic_loss = torch.mean(critic_loss) # (,)
         return critic_loss
     
     def update_parameters(

@@ -182,6 +182,30 @@ class TestDiscreteActorCritic(unittest.TestCase):
 
         # test the shape
         self.assertEqual(result.shape, torch.Size([])) # should be a scalar (without shape)
+    
+    def test_get_loss(self):
+
+        # test outputs for an example batch
+        torch.manual_seed(42)
+        episode_batches = dict()
+        episode_batches["rewards"] = torch.randn(100, 16).to(config["device"])
+        episode_batches["log_probs"] = - torch.randn(100, 16).to(config["device"])
+        episode_batches["value_preds"] = torch.randn(100, 16).to(config["device"])
+        episode_batches["critic_dists"] = torch.randn(100, 16, 255).to(config["device"])
+        episode_batches["critic_dists"] = F.softmax(episode_batches["critic_dists"], dim=2)
+        episode_batches["entropies"] = torch.randn(100, 16).to(config["device"])
+        episode_batches["masks"] = torch.randn(100, 16).to(config["device"])
+        episode_batches["masks"] = torch.where(episode_batches["masks"] > 0, 0, 1)
+
+        last_value_pred = torch.randn(16).to(config["device"])
+
+        critic_loss, actor_loss = self.test_agent.get_loss(episode_batches, last_value_pred)
+        self.assertEqual(torch.allclose(critic_loss, torch.tensor(605.5697), atol=1e-4), True)
+        self.assertEqual(torch.allclose(actor_loss, torch.tensor(0.0111), atol=1e-4), True)
+
+        # test output shapes
+        self.assertEqual(critic_loss.shape, torch.Size([])) # should be a scalar (without shape)
+        self.assertEqual(actor_loss.shape, torch.Size([])) # should be a scalar (without shape)
 
 if __name__ == "__main__":
     unittest.main()
