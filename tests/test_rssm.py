@@ -89,46 +89,43 @@ class TestRSSM(unittest.TestCase):
     def setUp(self):
         print("Run rssm tests...")
         # create an agent
-        # self.test_agent = DiscreteActorCritic()
+        self.test_rssm = RSSM()
          
-    # def test_critic(self):
-    #     """
-    #     Tests:
-    #     - output shapes
-    #     - that the critic softmax dist sums to 1
-    #     """
-        
-    #     #
-    #     # test for a single instance
-    #     #
-    #     sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
-    #     value_pred, critic_dist = self.test_agent.apply_critic(sample_instance)
+    def test_step(self):
 
-    #     # value_pred should be a scalar without shape
-    #     self.assertEqual(value_pred.shape, torch.Size([]))
+        # test for a single instance (without batch)
+        action = torch.randn(config["A"]).to(config["device"]) # torch.Size([3])
+        h = torch.randn(config["H"]).to(config["device"]) # torch.Size([512])
+        z = torch.randn(config["Z"]).to(config["device"]) # torch.Size([1024])
+        h, reward_pred, continue_prob, continue_pred, x_reconstruction = self.test_rssm.step(action, h, z)
 
-    #     # critic_dist should have shape (num_buckets)
-    #     self.assertEqual(critic_dist.shape, torch.Size([config["num_buckets"]]))
+        self.assertEqual(h.shape, torch.Size([1, config["H"]])) # should be (B, H)
+        self.assertEqual(reward_pred.shape, torch.Size([1])) # should be (B,)
+        self.assertEqual(continue_prob.shape, torch.Size([1])) # should be (B,)
+        self.assertEqual(continue_pred.shape, torch.Size([1])) # should be (B,)
+        n_channels = 1 if config["grayscale"] else 3
+        self.assertEqual(x_reconstruction.shape, torch.Size([1,n_channels,*config["size"]])) # should be (B, C, H, W)
 
-    #     #
-    #     # test for a batch
-    #     #
-    #     sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])
-    #     value_pred, critic_dist = self.test_agent.apply_critic(sample_batch)
 
-    #     # value_pred should have shape (batch_size)
-    #     self.assertEqual(value_pred.shape, torch.Size([32]))
+        # test for a batch
+        batch_size = 8
+        action = torch.randn(batch_size, config["A"]).to(config["device"]) # torch.Size([3])
+        h = torch.randn(batch_size, config["H"]).to(config["device"]) # torch.Size([512])
+        z = torch.randn(batch_size, config["Z"]).to(config["device"]) # torch.Size([1024])
+        h, reward_pred, continue_prob, continue_pred, x_reconstruction = self.test_rssm.step(action, h, z)
 
-    #     # critic_dist should have shape (batch_size, num_buckets)
-    #     self.assertEqual(critic_dist.shape, torch.Size([32, config["num_buckets"]]))
+        self.assertEqual(h.shape, torch.Size([batch_size, config["H"]])) # should be (B, H)
+        self.assertEqual(reward_pred.shape, torch.Size([batch_size])) # should be (B,)
+        self.assertEqual(continue_prob.shape, torch.Size([batch_size])) # should be (B,)
+        self.assertEqual(continue_pred.shape, torch.Size([batch_size])) # should be (B,)
+        n_channels = 1 if config["grayscale"] else 3
+        self.assertEqual(x_reconstruction.shape, torch.Size([batch_size,n_channels,*config["size"]])) # should be (B, C, H, W)
 
-    #     #
-    #     # test that the softmax sum is 1 for every instance in the batch
-    #     #
-    #     softmax_sum = critic_dist.sum(dim=-1)
-    #     expected_sum = torch.ones(32).to(config["device"])
-    #     self.assertTrue(torch.allclose(softmax_sum, expected_sum))
+        # test that continue prob is in [0,1]
+        self.assertTrue((continue_prob >= 0).all().item() and (continue_prob <= 1).all().item())
 
+        # test that continue pred is in {0,1}
+        self.assertTrue(torch.logical_or(continue_pred == 0, continue_pred == 1).all().item())
 
 if __name__ == "__main__":
     unittest.main()

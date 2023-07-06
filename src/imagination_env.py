@@ -156,8 +156,6 @@ def make_imagination_env(rssm, replay_buffer, render_mode):
         replay_buffer,
         render_mode
     )
-    print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
-    env = RecordEpisodeStatistics(env, deque_size=config["n_model_updates"])
 
     print("Adding a TimeLimit wrapper with %d max imagination episode steps." % config["max_imagination_episode_steps"])
     env = TimeLimit(env, max_episode_steps=config["max_imagination_episode_steps"])
@@ -169,5 +167,10 @@ def make_imagination_env(rssm, replay_buffer, render_mode):
     env = RescaleActionV0(env, min_action=config["action_space_low"], max_action=config["action_space_high"])
     print("Low:", env.action_space.low, end=", ")
     print("High:", env.action_space.high)
+
+    print("Adding a Gymnasium RecordEpisodeStatistics wrapper.")
+    env = RecordEpisodeStatistics(env, deque_size=config["n_model_updates"])
+
+    # make it one env (not vector) but give it a batch of actions in step and return a batch of observations.
 
     return env

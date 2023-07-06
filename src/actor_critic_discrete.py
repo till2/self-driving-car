@@ -57,8 +57,7 @@ class DiscreteActorCritic(nn.Module):
     
     def get_action(self, x):
         """
-        Selects a continuous action betw
-        een -1 and 1 based on the given observation. 
+        Selects a continuous action between -1 and 1 based on the given observation. 
 
         Args:
             x (torch.Tensor or np.ndarray): The preprocessed observation.
@@ -152,8 +151,10 @@ class DiscreteActorCritic(nn.Module):
                 Shape: (B,)
 
         Returns:
-            critic_loss (torch.Tensor)
-            actor_loss (torch.Tensor)
+            critic_loss (torch.Tensor):
+                Shape: Scalar (without shape)
+            actor_loss (torch.Tensor):
+                Shape: Scalar (without shape)
         """
 
         ep_rewards = episode_batches["rewards"]
@@ -198,7 +199,7 @@ class DiscreteActorCritic(nn.Module):
         
         Returns:
             critic_loss (torch.Tensor):
-                Shape: scalar - in other words (,)
+                Shape: Scalar (without shape)
         """
         twohot_returns = twohot_returns.permute(1, 0, 2) # => (B, SEQ_LENGTH, NUM_BUCKETS)
         batch_critic_dists = batch_critic_dists.permute(1, 0, 2) # => (B, SEQ_LENGTH, NUM_BUCKETS)
@@ -220,15 +221,18 @@ class DiscreteActorCritic(nn.Module):
         nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=self.max_grad_norm, norm_type=2)
         self.actor_optim.step()
 
-    def save_weights(self):
+    def save_weights(self, filename=None):
         os.makedirs("weights", exist_ok=True)
-        base_path = "weights/DiscreteActorCritic"
-        index = 0
-        while os.path.exists(f"{base_path}_{index}"):
-            index += 1
-        print(f"Saving agent weights to {base_path}_{index}")
-        torch.save(self.state_dict(), f"{base_path}_{index}")
-
+        if filename:
+            print(f"Saving agent weights to weights/{filename}")
+            torch.save(self.state_dict(), f"weights/{filename}")
+        else:
+            base_path = "weights/DiscreteActorCritic"
+            index = 0
+            while os.path.exists(f"{base_path}_{index}"):
+                index += 1
+            print(f"Saving agent weights to {base_path}_{index}")
+            torch.save(self.state_dict(), f"{base_path}_{index}")
         
     def load_weights(self, path="weights/DiscreteActorCritic", eval_mode=False):
         self.load_state_dict(torch.load(path))

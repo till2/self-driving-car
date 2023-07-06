@@ -277,9 +277,7 @@ class MetricsTracker():
     def log_to_tensorboard(self, step):
         """ This method is called every log_interval steps. Logs the metrics to tensorboard. """
         for name, batch in self.training_metrics.items():
-            print("MetricsTracker: Adding", name, "to step", step) # debug. delete after experiment.
             self.writer.add_scalar(name, batch[-1].item(), global_step=step)
-
 
 
 def save_image_and_reconstruction(x, x_pred, episode):

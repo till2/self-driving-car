@@ -7,16 +7,16 @@ from .utils import load_config, to_np
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dims, output_dims, out_type="linear", weight_init=None):
+    def __init__(self, input_dims, output_dims, n_layers=None, hidden_dims=None, out_type="linear", weight_init=None):
         super().__init__()
 
         config = load_config()
         
         self.input_dims = input_dims
-        self.hidden_dims = config["mlp_hidden_dims"]
+        self.hidden_dims = config["mlp_hidden_dims"] if hidden_dims is None else hidden_dims
         self.output_dims = output_dims
         
-        self.n_layers = config["mlp_n_layers"]
+        self.n_layers = config["mlp_n_layers"] if n_layers is None else n_layers
         self.layers = nn.Sequential()
         self.out_type = out_type
         

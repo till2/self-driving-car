@@ -33,10 +33,14 @@ class RSSM(nn.Module):
         # init the VAE
         self.vae = CategoricalVAE()
         
-        # init the RNN
+        # init the GRU
         self.num_rnn_layers = config["num_rnn_layers"]
         self.rnn = nn.GRU(input_size=self.A + self.H + self.Z, hidden_size=self.H, num_layers=self.num_rnn_layers)
-        
+
+        # init pre- and postprocessing layers before and after the GRU
+        self.pre_gru_linear = MLP(input_dims=self.A + self.H + self.Z, output_dims=self.A + self.H + self.Z, 
+                                    n_layers=1, hidden_dims=512)
+
         # init MLPs
         print("\nInitializing dynamics_mlp.")
         self.dynamics_mlp = MLP(input_dims=self.H, output_dims=self.Z) # H -> Z
@@ -53,31 +57,61 @@ class RSSM(nn.Module):
         self.to(self.device)
     
     def step(self, action, h, z):
-        h = h.view(-1, self.H)
-        h = h.to(self.device)
-        z = z.to(self.device)
+        """
+        Performs one step with the RSSM model given an action, the previous hidden and stochastic state.
 
+        Args:
+            # TODO: CHECK IN THE TRAINING LOOP THAT ARGS ACTUALLY HAVE THIS SHAPE!
+            action (torch.Tensor): 
+                Shape: (B, A)
+            h (torch.Tensor): deterministic hidden state
+                Shape: (B, H)
+            z (torch.Tensor): stochastic hidden state
+                Shape: (B, Z)
+        
+        Returns:
+            h (torch.Tensor): new deterministic hidden state
+                Shape: (B, H)
+            reward_pred (torch.Tensor):
+                Shape: (B,)
+            continue_prob (torch.Tensor):
+                Shape: (B,)
+            continue_pred (torch.Tensor):
+                Shape: (B,)
+            x_reconstruction (torch.Tensor):
+                Shape: (B, C, H, W)
+        """
         # convert the action to a tensor
         if not isinstance(action, torch.Tensor):
             action = torch.tensor(action)
-        action = action.to(self.device).view(1, self.A) # (1,A)
+        action = action.to(self.device).view(-1, self.A) # (B, A)
+        h = h.to(self.device).view(-1, self.H) # (B, H)
+        z = z.to(self.device).view(-1, self.Z) # (B, Z)
+
+        batch_size = action.size(0)
 
         # reconstruct the image
-        x_reconstruction = self.vae.decode(h, z)
+        x_reconstruction = self.vae.decode(h, z) # (B, C, H, W)
 
-        state = torch.cat((h, z), dim=1)
+        state = torch.cat((h, z), dim=1) # (B, STATE) with STATE=H+Z
         
         # predict the reward and continue flag
-        reward_pred = self.reward_mlp(state)
-        continue_prob = self.continue_mlp(state)
-        continue_pred = torch.bernoulli(continue_prob)
+        reward_pred = self.reward_mlp(state).view(batch_size) # (B,)
+        continue_prob = self.continue_mlp(state).view(batch_size) # (B,)
+        continue_pred = torch.bernoulli(continue_prob).view(batch_size) # (B,)
 
         # rssm step:
         # concatenate the rnn_input and apply RNN to obtain the next hidden state
-        rnn_input = torch.cat((action, h, z), 1).float()
-        # linear in
+        rnn_input = torch.cat((action, h, z), 1).float() # (B, RNN_INPUT) with RNN_INPUT=A+H+Z
+
+        # NEW: Linear In
+        rnn_input = self.pre_gru_linear(rnn_input)
+
+        rnn_input = rnn_input.view(1, batch_size, -1)  # (1, B, A+H+Z)
+        h = h.unsqueeze(0) # (1, B, H)
+
         _, h = self.rnn(rnn_input, h)
-        # linear out  
+        h = h.squeeze(0) # (B,H)
         
         return h, reward_pred, continue_prob, continue_pred, x_reconstruction
     
