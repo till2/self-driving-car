@@ -40,10 +40,9 @@ class DiscreteActorCritic(nn.Module):
         
         # use discrete action targets with EMA for smooth control
         self.use_action_ema = config["use_action_ema"]
-        if self.use_action_ema:
-            self.action_ema = ActionExponentialMovingAvg()
-            self.action_buckets = torch.tensor([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0]).to(self.device)
-            self.n_action_buckets = len(self.action_buckets)
+        self.action_ema = ActionExponentialMovingAvg()
+        self.action_buckets = torch.tensor([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0]).to(self.device)
+        self.n_action_buckets = len(self.action_buckets)
 
         # define actor and critic nets
         print("Initializing critic.")
@@ -93,8 +92,7 @@ class DiscreteActorCritic(nn.Module):
         log_prob = action_pd.log_prob(action_idxs).sum(dim=1) # sum over entries of the action-vector
 
         # update exponential moving average action for smooth control
-        if self.use_action_ema:
-            action = self.action_ema.get_smoothed_action(action_target)
+        action = self.action_ema.get_smoothed_action(action_target) if self.use_action_ema else action_target
         action = action.view(-1, self.n_actions) # (B,A)
 
         return action, log_prob, actor_entropy
