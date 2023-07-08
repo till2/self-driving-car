@@ -92,8 +92,8 @@ class TestTwoHotEncoding(unittest.TestCase):
     def test_critic(self):
         """
         Tests:
-        - the symlog two-hot encodings for a few examples (for scalar and vector inputs)
-        - that the function is reversible with symexp (for scalar and vector inputs)
+            - the symlog two-hot encodings for a few examples (for scalar and vector inputs)
+            - that the function is reversible with symexp (for scalar and vector inputs)
         """
         
         # test the encoding for scalar example 1/2

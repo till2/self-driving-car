@@ -84,54 +84,81 @@ for key in config:
     locals()[key] = config[key]
 
 
-class TestRSSM(unittest.TestCase):
+class TestCategoricalStraightThrough(unittest.TestCase):
 
     def setUp(self):
-        print("Run rssm tests...")
-        # create an agent
-        self.test_rssm = RSSM()
-         
-    def test_step(self):
+        print("Run CategoricalStraightThrough tests...")
+        self.test_categorical = CategoricalStraightThrough()
+
+    def test_forward(self):
         """
         Tests:
-            - the output shapes for a single instance (without batch dim) and a batch
-            - that continue_prob is in [0,1]
-            - that continue_pred is in {0,1}
+            - the output shapes for valid inputs (with and without batches)
+            - that faulty inputs raise an AssertionError
         """
+        
+        valid_inputs = [
+            # (Z,)
+            torch.randn(32*32), # i=0
+            
+            # (B, Z)
+            torch.randn(1, 32*32), # i=1
+            torch.randn(5, 32*32), # i=2
+            
+            # (NUM_CATEGORICALS, NUM_CLASSES)
+            torch.randn(32, 32), # i=3
 
-        # test for a single instance (without batch)
-        action = torch.randn(config["A"]).to(config["device"]) # torch.Size([3])
-        h = torch.randn(config["H"]).to(config["device"]) # torch.Size([512])
-        z = torch.randn(config["Z"]).to(config["device"]) # torch.Size([1024])
-        h, reward_pred, continue_prob, continue_pred, x_reconstruction = self.test_rssm.step(action, h, z)
+            # (B, NUM_CATEGORICALS, NUM_CLASSES)
+            torch.randn(1, 32, 32), # i=4
+            torch.randn(5, 32, 32), # i=5
+        ]
 
-        self.assertEqual(h.shape, torch.Size([1, config["H"]])) # should be (B, H)
-        self.assertEqual(reward_pred.shape, torch.Size([1])) # should be (B,)
-        self.assertEqual(continue_prob.shape, torch.Size([1])) # should be (B,)
-        self.assertEqual(continue_pred.shape, torch.Size([1])) # should be (B,)
-        n_channels = 1 if config["grayscale"] else 3
-        self.assertEqual(x_reconstruction.shape, torch.Size([1,n_channels,*config["size"]])) # should be (B, C, H, W)
+        # test the shapes for the valid inputs
+        for i, valid_input in enumerate(valid_inputs):
+            print("testing valid input")
+            result = self.test_categorical(valid_input)
+
+            if i == 2 or i == 5:
+                batch_shape = 5
+            else:
+                batch_shape = 1
+            
+            self.assertEqual(result.shape, torch.Size([batch_shape, config["num_categoricals"], config["num_classes"]]))
 
 
-        # test for a batch
-        batch_size = 8
-        action = torch.randn(batch_size, config["A"]).to(config["device"]) # torch.Size([3])
-        h = torch.randn(batch_size, config["H"]).to(config["device"]) # torch.Size([512])
-        z = torch.randn(batch_size, config["Z"]).to(config["device"]) # torch.Size([1024])
-        h, reward_pred, continue_prob, continue_pred, x_reconstruction = self.test_rssm.step(action, h, z)
+        faulty_inputs = [
+            # (Z,)
+            torch.randn(32*31),
+            torch.randn(32*2),
+            torch.randn(32*64),
+            torch.randn(33*32),
+            torch.randn(8*8),
+            torch.randn(16*16),
+            
+            # (B, Z)
+            torch.randn(1, 32*64),
+            torch.randn(5, 16*32),
+            
+            # (NUM_CATEGORICALS, NUM_CLASSES)
+            torch.randn(32, 16),
+            torch.randn(64, 32),
+            torch.randn(64, 64),
+            torch.randn(1, 1),
 
-        self.assertEqual(h.shape, torch.Size([batch_size, config["H"]])) # should be (B, H)
-        self.assertEqual(reward_pred.shape, torch.Size([batch_size])) # should be (B,)
-        self.assertEqual(continue_prob.shape, torch.Size([batch_size])) # should be (B,)
-        self.assertEqual(continue_pred.shape, torch.Size([batch_size])) # should be (B,)
-        n_channels = 1 if config["grayscale"] else 3
-        self.assertEqual(x_reconstruction.shape, torch.Size([batch_size,n_channels,*config["size"]])) # should be (B, C, H, W)
+            # (B, NUM_CATEGORICALS, NUM_CLASSES)
+            torch.randn(1, 64, 32),
+            torch.randn(1, 32, 64),
+            torch.randn(5, 64, 32),
+            torch.randn(5, 32, 64),
+        ]
 
-        # test that continue prob is in [0,1]
-        self.assertTrue((continue_prob >= 0).all().item() and (continue_prob <= 1).all().item())
+        # test that the faulty inputs fail
+        for faulty_input in faulty_inputs:
+            print("testing faulty input")
+            with self.assertRaises(AssertionError):
+                print("faulty input detected\n")
+                self.test_categorical(faulty_input)
 
-        # test that continue pred is in {0,1}
-        self.assertTrue(torch.logical_or(continue_pred == 0, continue_pred == 1).all().item())
 
 if __name__ == "__main__":
     unittest.main()

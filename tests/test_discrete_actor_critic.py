@@ -135,8 +135,8 @@ class TestDiscreteActorCritic(unittest.TestCase):
     def test_actor(self):
         """
         Tests:
-        - output shapes
-        - that all logprobs are <= 0 (because log(1) = 0)
+            - output shapes
+            - that all logprobs are <= 0 (because log(1) = 0)
         """
         sample_instance = torch.randn(config["H"] + config["Z"]).to(config["device"]) # torch.Size([1536])
         sample_batch = torch.randn(32, config["H"] + config["Z"]).to(config["device"]) # torch.Size([32, 1536])

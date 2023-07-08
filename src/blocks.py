@@ -14,7 +14,7 @@ class ConvBlock(nn.Module):
     """ Use this block to perform a convolution and change the number of channels. """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, 
                     height=None, width=None, transpose_conv=False):
-        super(ConvBlock, self).__init__()    
+        super().__init__()
         config = load_config()
 
         conv_bias = config["conv_bias"]
@@ -53,20 +53,68 @@ class CategoricalStraightThrough(nn.Module):
     The entropy of the latest forward pass distribution gets saved as an attribute.
     """
     def __init__(self):
-        super(CategoricalStraightThrough, self).__init__()
+        super().__init__()
         config = load_config()
         
+        self.num_categoricals = config["num_categoricals"]
         self.num_classes = config["num_classes"]
         self.uniform_ratio = config["uniform_ratio"]
         self.entropy = None
 
     def forward(self, logits):
+
+        """
+        Args:
+            logits (torch.Tensor):
+                Shape:     
+                    (Z,) or
+                    (B, Z) or
+                    (NUM_CATEGORICALS, NUM_CLASSES) or
+                    (B, NUM_CATEGORICALS, NUM_CLASSES)
+
+        """
+        input_shape = logits.shape
+        error_message = f"Invalid input shape {list(input_shape)} to Categorical"
+
+        # Convert: (Z,) => (B, NUM_CATEGORICALS, NUM_CLASSES)
+        if len(logits.shape) == 1:  
+            batch_shape = 1
+            assert logits.shape[0] == self.num_categoricals * self.num_classes, error_message
+            logits = logits.view(batch_shape, self.num_categoricals, self.num_classes)
+
+        # (B, Z) or (NUM_CATEGORICALS, NUM_CLASSES)
+        elif len(logits.shape) == 2:
+
+            # Convert: (NUM_CATEGORICALS, NUM_CLASSES) => (B, NUM_CATEGORICALS, NUM_CLASSES)
+            if logits.shape[0] == self.num_categoricals and logits.shape[1] == self.num_classes:
+                batch_shape = 1
+                logits = logits.unsqueeze(0)
+            
+            # Convert: (B, Z) => (B, NUM_CATEGORICALS, NUM_CLASSES)
+            else:
+                batch_shape = logits.shape[0]
+                assert logits.shape[1] == self.num_categoricals * self.num_classes, error_message
+                logits = logits.view(batch_shape, self.num_categoricals, self.num_classes)
+
+        # (B, NUM_CATEGORICALS, NUM_CLASSES)
+        elif len(logits.shape) == 3:
+            batch_shape = logits.shape[0]
+            assert logits.shape[1] == self.num_categoricals and logits.shape[2] == self.num_classes, error_message
+
+        else:
+            raise AssertionError(error_message)
         
-        # Compute the softmax probabilities
-        probs = F.softmax(logits.view(-1, self.num_classes, self.num_classes), -1)
+        # shape should be (B, NUM_CATEGORICALS, NUM_CLASSES)
+        assert len(logits.shape) == 3
+        assert logits.shape[0] >= 1
+        assert logits.shape[1] == self.num_categoricals
+        assert logits.shape[2] == self.num_classes
+        
+        # Compute the softmax probabilities (softmax over classes)
+        probs = F.softmax(logits, dim=-1)
 
         # from the DreamerV3 paper: parameterize as 1% uniform and 99% logits to avoid near-deterministic distributions
-        probs = self.uniform_ratio * torch.ones_like(probs) / probs.shape[-1] + (1-self.uniform_ratio) * probs
+        probs = self.uniform_ratio * (torch.ones_like(probs) / self.num_classes) + (1-self.uniform_ratio) * probs
 
         # Sample from the categorical distribution
         m = dist.OneHotCategorical(probs=probs)
