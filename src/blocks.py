@@ -48,9 +48,11 @@ class ConvBlock(nn.Module):
   
 class CategoricalStraightThrough(nn.Module):
     """
-    Given a tensor of logits, this module samples from a categorical distribution,
-    and computes the straight-through gradient estimator of the sampling operation.
-    The entropy of the latest forward pass distribution gets saved as an attribute.
+    A Categorical distribution that returns one-hot categorical samples, with a
+    stright-through gradient estimator to get gradients through the discrete sampling operation.  
+
+    Note:
+        The entropy of the latest forward pass distribution gets saved as an attribute.
     """
     def __init__(self):
         super().__init__()
@@ -60,19 +62,35 @@ class CategoricalStraightThrough(nn.Module):
         self.num_classes = config["num_classes"]
         self.uniform_ratio = config["uniform_ratio"]
         self.entropy = None
+        self.device = config["device"]
 
     def forward(self, logits):
-
         """
+        Calculates the categorical input probabilities as a softmax over the classes
+
         Args:
             logits (torch.Tensor):
-                Shape:     
+                Shape:
                     (Z,) or
                     (B, Z) or
                     (NUM_CATEGORICALS, NUM_CLASSES) or
                     (B, NUM_CATEGORICALS, NUM_CLASSES)
+        
+        Returns:
+            sample (torch.Tensor): One-hot encoded samples from NUM_CATEGORICALS distributions over NUM_CLASSES discrete classes.
+                Shape: (B, NUM_CATEGORICALS, NUM_CLASSES)
+            probs (torch.Tensor): The input probabilities for the one-hot categorical distribution. (these are required for the KL loss)
+                Shape: (B, NUM_CATEGORICALS, NUM_CLASSES)
 
+        Note:
+            Reshapes any valid input to the correct format to always return the same output shape.
         """
+        # move to device
+        if not isinstance(logits, torch.Tensor):
+            logits = torch.tensor(logits)
+        logits = logits.to(self.device)
+
+        # prepare shape and potential error message (for wrong input shapes)
         input_shape = logits.shape
         error_message = f"Invalid input shape {list(input_shape)} to Categorical"
 
@@ -125,4 +143,4 @@ class CategoricalStraightThrough(nn.Module):
         sample = sample + grad # has the gradient of probs
         
         self.entropy = m.entropy()
-        return sample
+        return sample, probs

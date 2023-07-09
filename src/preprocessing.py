@@ -19,10 +19,12 @@ Args:
 
 Returns:
     x (torch.Tensor): transformed batch of images
-        Shape: (B,H,W,C)
+        Shape: (B,C,H,W)
 
 Notes:
     - only works on tensors as input, otherwise wouldn't work with batches
+    - the input tensor needs to have a batch dimension (len(shape) == 4) 
+    - (!) changes the dims to channel-first!
 """
 transform = transforms.Compose([
     #transforms.ToTensor(), # devides by 255 to scale the input to the range [0,1]
@@ -31,7 +33,6 @@ transform = transforms.Compose([
     transforms.Lambda(lambda x: x.to(device)),
     transforms.Resize((height, width)),
     transforms.Grayscale() if grayscale else transforms.Lambda(lambda x: x),
-    transforms.Lambda(lambda x: x.permute(0, 2, 3, 1)),
 ])
 
 # result = preprocess(obs)

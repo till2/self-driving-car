@@ -134,7 +134,7 @@ class DiscreteActorCritic(nn.Module):
         Computes the loss of critic and actor using GAE.
 
         Args:
-            episode_batches: dict that includes:
+            episode_batches (dict): Dictionary that includes the episode batches:
                 rewards (torch.Tensor):
                     Shape: (SEQ_LEN, B)
                 log_probs (torch.Tensor):

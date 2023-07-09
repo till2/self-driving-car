@@ -11,13 +11,14 @@ from .utils import load_config
 
 class CategoricalVAE(nn.Module):
     def __init__(self):
-        super(CategoricalVAE, self).__init__()
+        super().__init__()
         config = load_config()
 
         self.input_channels = 1 if config["grayscale"] else 3 # for the encoder
         self.decoder_start_channels = config["channels"][-1] # for the decoder
         self.num_categoricals = config["num_categoricals"]
         self.num_classes = config["num_classes"]
+        self.device = config["device"]
 
         self.n_features = config["H"] + config["Z"]
         self.entropyloss_coeff = config["entropyloss_coeff"]
@@ -80,11 +81,17 @@ class CategoricalVAE(nn.Module):
 
         if config["decoder_final_activation"].lower() == "sigmoid":
             self.decoder.add_module("output_activation", nn.Sigmoid())
+        
+        self.to(self.device)
 
     def encode(self, x):
-        logits = self.encoder(x).view(-1,self.num_categoricals,self.num_classes)
-        z = self.categorical(logits)
-        return z
+        # Input: (B,C,H,W)
+        # Output: (B, NUM_CATEGORICALS, NUM_CLASSES)
+        batch_size = x.shape[0]
+        logits = self.encoder(x) # (B, Z) with Z = NUM_CATEGORICALS*NUM_CLASSES
+        logits = logits.view(batch_size, self.num_categoricals, self.num_classes) # (B, NUM_CATEGORICALS, NUM_CLASSES)
+        z, z_probs = self.categorical(logits) # => (B, NUM_CATEGORICALS, NUM_CLASSES)
+        return z, z_probs
     
     def decode(self, h, z_flat):
         zh = torch.cat((h, z_flat), dim=-1)

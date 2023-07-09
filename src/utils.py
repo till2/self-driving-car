@@ -383,6 +383,7 @@ def make_env():
             print(f"- making a AsyncVectorEnv with {n_envs} envs")
             env = gym.vector.AsyncVectorEnv([lambda: make_auto_reset_env() for i in range(n_envs)])
     else:
+        raise NotImplementedError("This implementation only supports vectorized environments. Use n_envs=1 for a single environment.")
         print("- making a non-vectorized env")
         env = make_auto_reset_env()
 

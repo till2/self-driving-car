@@ -116,14 +116,15 @@ class TestCategoricalStraightThrough(unittest.TestCase):
         # test the shapes for the valid inputs
         for i, valid_input in enumerate(valid_inputs):
             print("testing valid input")
-            result = self.test_categorical(valid_input)
+            result_z, result_probs = self.test_categorical(valid_input)
 
             if i == 2 or i == 5:
                 batch_shape = 5
             else:
                 batch_shape = 1
             
-            self.assertEqual(result.shape, torch.Size([batch_shape, config["num_categoricals"], config["num_classes"]]))
+            self.assertEqual(result_z.shape, torch.Size([batch_shape, config["num_categoricals"], config["num_classes"]]))
+            self.assertEqual(result_probs.shape, torch.Size([batch_shape, config["num_categoricals"], config["num_classes"]]))
 
 
         faulty_inputs = [
