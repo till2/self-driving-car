@@ -35,11 +35,14 @@ jobs:
       - name: Run two-hot encoding tests
         run: python tests/test_two_hot_encoding.py
 
-      - name: Run CategoricalStraightThrough tests
-        run: python tests/test_categorical_straight_through.py
-
       - name: Run DiscreteActorCritic tests
         run: python tests/test_discrete_actor_critic.py
+
+      - name: Run CategoricalStraightThrough tests
+        run: python tests/test_categorical_straight_through.py
+      
+      - name: Run CategoricalVAE tests
+        run: python tests/test_categorical_vae.py
 
       - name: Run RSSM tests
         run: python tests/test_rssm.py

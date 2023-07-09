@@ -85,8 +85,20 @@ class CategoricalVAE(nn.Module):
         self.to(self.device)
 
     def encode(self, x):
-        # Input: (B,C,H,W)
-        # Output: (B, NUM_CATEGORICALS, NUM_CLASSES)
+        """
+        Encodes a given preprocessed observation to the posterior stochastic state z. 
+        Also returns the probs for the categorical distribution that are required for the KL loss.
+
+        Args:
+            x (torch.Tensor): Preprocessed observation (channels-first)
+                Shape: (B,C,H,W)
+        
+        Returns:
+            z (torch.Tensor):
+                Shape: (B, NUM_CATEGORICALS, NUM_CLASSES)
+            z_probs (torch.Tensor):
+                Shape: (B, NUM_CATEGORICALS, NUM_CLASSES)
+        """
         batch_size = x.shape[0]
         logits = self.encoder(x) # (B, Z) with Z = NUM_CATEGORICALS*NUM_CLASSES
         logits = logits.view(batch_size, self.num_categoricals, self.num_classes) # (B, NUM_CATEGORICALS, NUM_CLASSES)
@@ -94,20 +106,61 @@ class CategoricalVAE(nn.Module):
         return z, z_probs
     
     def decode(self, h, z_flat):
-        zh = torch.cat((h, z_flat), dim=-1)
-        dec_inp = self.linear(zh).view(-1, self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width)
-        x_hat = self.decoder(dec_inp.view(-1, self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width))
+        """
+        Decodes the state, consisting of h and z, into the reconstructed image.
+        The decoders final activation is a sigmoid, so it reconstructs the to [0,1] scaled pixel values.
+        The decoder is currently deterministic and doesn't sample the output image.
+
+        Args:
+            h (torch.Tensor): Deterministic recurrent hidden state (B, H)
+            z_flat (torch.Tensor): Flattened categorical variables (B, NUM_CATEGORICALS * NUM_CLASSES)
+        
+        Returns:
+            x_hat (torch.Tensor): Reconstructed image (B, C, H, W)
+        """
+        assert len(h.shape) == 2
+        batch_size = h.shape[0]
+
+        if len(z_flat.shape) == 2:
+            assert z_flat.shape[0] == batch_size
+            assert z_flat.shape[1] == self.num_categoricals * self.num_classes
+        elif len(z_flat.shape) == 3:
+            assert z_flat.shape[0] == batch_size
+            assert z_flat.shape[1] == self.num_categoricals
+            assert z_flat.shape[2] == self.num_classes
+        else:
+            raise AssertionError(f"Decoder z input shape should be [B, NUM_CATEGORICALS * NUM_CLASSES], but got {list(z_flat.shape)}")
+
+
+        zh = torch.cat((h, z_flat), dim=1) # (B, H) + (B, Z) => (B, H+Z)
+        dec_inp = self.linear(zh)
+        dec_inp = dec_inp.view(batch_size, self.decoder_start_channels, self.decoder_start_height, self.decoder_start_width)
+        x_hat = self.decoder(dec_inp)
         return x_hat
 
     def get_loss(self, x, xhat):
+        """
+        Args:
+            x (torch.Tensor): Input images (B, C, H, W)
+            xhat (torch.Tensor): Reconstructed images (B, C, H, W)
         
-        # image reconstruction loss
-        reconstruction_loss = F.mse_loss(x, xhat, reduction="mean")
+        Returns:
+            loss (torch.Tensor): Total loss
+            reconstruction_loss (torch.Tensor): Image reconstruction loss
+            entropy_loss (torch.Tensor): Entropy loss
+        """
         
-        # total loss
-        entropy_loss = - self.entropyloss_coeff * self.categorical.entropy.mean()
-        loss = reconstruction_loss + entropy_loss
-        return loss, reconstruction_loss, entropy_loss
+        raise NotImplementedError("This method should not be called in the current code.")
+
+        # # image reconstruction loss
+        # reconstruction_loss = F.mse_loss(x, xhat, reduction="mean")
+        
+        # # total loss
+        # entropy_loss = - self.entropyloss_coeff * self.categorical.entropy.mean()
+        # loss = reconstruction_loss + entropy_loss
+        # return loss, reconstruction_loss, entropy_loss
+        
+
 
     def save_weights(self):
         os.makedirs("weights", exist_ok=True)
