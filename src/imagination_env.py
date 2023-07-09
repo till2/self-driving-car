@@ -66,7 +66,7 @@ class ImaginationEnv(gym.Env):
         
         # predict z from h
         z_prior = self.rssm.dynamics_mlp(self.h).view(-1, self.num_categoricals, self.num_classes) # (1,32,32) for the softmax
-        z_prior = F.softmax(z_prior, -1).flatten(start_dim=1, end_dim=2) # (1, 1024)
+        z_prior = F.softmax(z_prior, -1).flatten(start_dim=1, end_dim=2) # (1, 1024) # THIS IS WRONG. SHOULD SAMPLE.
         z = z_prior
         
         # convert the action to a tensor

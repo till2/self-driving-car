@@ -183,7 +183,6 @@ class TestRSSM(unittest.TestCase):
             self.assertFalse(torch.allclose(step_dict["z"], step_dict["z_pred"]))
             self.assertFalse(torch.allclose(step_dict["z_probs"], step_dict["z_pred_probs"]))
 
-
             # EXTRA TESTS
             # input: h_t, output: h_t
             self.assertTrue(torch.allclose(h, step_dict["h"]))
