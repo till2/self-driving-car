@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run preprocessing tests
+        run: python test_preprocessing.py
+
       - name: Run two-hot encoding tests
         run: python tests/test_two_hot_encoding.py
 

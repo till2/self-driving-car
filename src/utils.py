@@ -16,7 +16,12 @@ from typing import Dict, List, Union
 
 from torch.utils.tensorboard import SummaryWriter
 
-to_np = lambda x: x.detach().cpu().numpy()
+def to_np(x):
+    if isinstance(x, np.ndarray):
+        return x
+    elif isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.array(x)
 
 
 def symlog(r):

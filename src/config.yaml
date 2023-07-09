@@ -23,14 +23,14 @@ font_size: 30
 sb3_monitor: False
 toy_env: True
 vectorized: True # should always be True because we need a batch shape
-n_envs: 5
+n_envs: 16
 
-# Observations
-size: [64, 64] # [128, 128]
+# Preprocessing
+size: [64, 64]
 grayscale: False
 
 # Training
-start_phase: 1000 # 0 | 1000 if starting from a pretrained rssm (to skip the seed episodes)
+start_phase: 0 # 0 | 1000 if starting from a pretrained rssm (to skip the seed episodes)
 n_seed_phases: 1000
 n_model_updates: 7812 # 7812 * 64 ~= 500k
 n_steps_per_model_update: 64

@@ -169,8 +169,8 @@ class RSSM(nn.Module):
             "x": x if training else None,
             "x_reconstruction": x_reconstruction  if training else None,
             }
-        
-    
+
+
     def step(self, action, h, z):
         """
         Performs a step with the GRU to get the next hidden state.
