@@ -60,7 +60,7 @@ class RSSM(nn.Module):
 
         self.to(self.device)
     
-    def pre_step(self, h=None, x=None):
+    def pre_step(self, h=None, x=None, return_reconstruction=False):
         """
         Performs one step with the RSSM model given an action, the previous hidden and stochastic state.
 
@@ -69,6 +69,7 @@ class RSSM(nn.Module):
                 Shape: (B, H)
             x (torch.Tensor): preprocessed observation (required in training mode to get z)
                 Shape: (B, C, H, W)
+            return_reconstruction (bool): Flag so that the reconstruction can be returned, even in inference mode.
         
         Returns:
         step_dict (dict): Dictionary containing the following:
@@ -149,11 +150,12 @@ class RSSM(nn.Module):
         state = torch.cat((h, z if training else z_prior), dim=1) # (B, STATE) with STATE=H+Z
 
         # apply heads
-        if training:
+        if training or return_reconstruction:
             x_reconstruction = self.vae.decode(h, z) # (B, C, H, W)
-            reward_pred = self.reward_mlp(state).view(batch_size) # (B,)
-            continue_prob = self.continue_mlp(state).view(batch_size) # (B,)
-            continue_pred = torch.bernoulli(continue_prob).view(batch_size) # (B,)
+
+        reward_pred = self.reward_mlp(state).view(batch_size) # (B,)
+        continue_prob = self.continue_mlp(state).view(batch_size) # (B,)
+        continue_pred = torch.bernoulli(continue_prob).view(batch_size) # (B,)
         
         ### return state, h, z, reward_pred, continue_prob, continue_pred, x_reconstruction
         return {
@@ -163,11 +165,11 @@ class RSSM(nn.Module):
             "z_pred": z_prior, # one-hot sample
             "z_probs": z_probs if training else z_prior_probs, # for the KL loss
             "z_pred_probs": z_prior_probs, # for the KL loss
-            "reward_pred": reward_pred if training else None,
-            "continue_prob": continue_prob if training else None,
-            "continue_pred": continue_pred if training else None,
+            "reward_pred": reward_pred,
+            "continue_prob": continue_prob,
+            "continue_pred": continue_pred,
             "x": x if training else None,
-            "x_reconstruction": x_reconstruction  if training else None,
+            "x_reconstruction": x_reconstruction if (training or return_reconstruction) else None,
             }
 
 

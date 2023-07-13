@@ -234,7 +234,7 @@ class MetricsTracker():
                 self.episode_metrics[name] = list()
 
         # tensorboard setup        
-        self.writer = SummaryWriter(self.log_dir)        
+        self.writer = SummaryWriter(self.log_dir)
         
     def add(self, 
             training_metrics: Dict[str, torch.Tensor] = None, 
@@ -278,6 +278,14 @@ class MetricsTracker():
             self.episode_metrics[name] = []
 
         return episode_metrics
+    
+    def has_elements(self):
+        has_elems = True
+        for name, batch in self.training_metrics.items():
+            if len(batch) == 0:
+                has_elems = False
+                break
+        return has_elems
     
     def log_to_tensorboard(self, step):
         """ This method is called every log_interval steps. Logs the metrics to tensorboard. """

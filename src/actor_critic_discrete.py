@@ -176,10 +176,17 @@ class DiscreteActorCritic(nn.Module):
         next_advantage = torch.zeros_like(last_value_pred) # (1, B)
 
         # calculate advantages using GAE
+        # for t in reversed(range(len(ep_rewards))):
+        #     returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
+        #     td_error = returns[t] - ep_value_preds[t]
+        #     advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
+
+        # paper.
         for t in reversed(range(len(ep_rewards))):
-            returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
-            td_error = returns[t] - ep_value_preds[t]
-            advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
+            if t == len(returns)-1:
+                returns[t] = ep_value_preds[t]
+            else:
+                returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])
 
         # categorical crossentropy (should be fine, I checked.)
         twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # (SEQ_LEN, B, NUM_BUCKETS)        

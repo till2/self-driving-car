@@ -29,10 +29,13 @@ class ReplayBuffer():
         self.buffer.append(observation)
 
     def sample(self, n=1):
+        # assert that the buffer holds at least one observation
+        assert len(self) > 0
+
         if n == 1:
             observation = random.choice(self.buffer)
         else:
-            observation = torch.stack(random.sample(self.buffer, n))
+            observation = torch.stack(random.sample(self.buffer, size=n, replace=True))
 
         # move buffer object to original device (probably GPU)
 
