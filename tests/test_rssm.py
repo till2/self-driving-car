@@ -148,9 +148,10 @@ class TestRSSM(unittest.TestCase):
             self.assertEqual(step_dict["z_probs"].shape, torch.Size([batch_size, config["Z"]]))
             self.assertEqual(step_dict["z_pred_probs"].shape, torch.Size([batch_size, config["Z"]]))
 
-            self.assertIsNone(step_dict["reward_pred"])
-            self.assertIsNone(step_dict["continue_prob"])
-            self.assertIsNone(step_dict["continue_pred"])
+            self.assertIsNotNone(step_dict["reward_pred"])
+            self.assertIsNotNone(step_dict["continue_prob"])
+            self.assertIsNotNone(step_dict["continue_pred"])
+            
             self.assertIsNone(step_dict["x"])
             self.assertIsNone(step_dict["x_reconstruction"])
 
