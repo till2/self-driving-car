@@ -32,6 +32,10 @@ class DiscreteActorCritic(nn.Module):
         self.actor_lr = config["actor_lr"]
         self.max_grad_norm = config["max_grad_norm"]
         self.device = config["device"]
+        self.loss_calculation = config["loss_calculation"]
+        
+        if self.loss_calculation not in ["gae", "dreamerv3"]:
+            raise ValueError("Invalid loss calculation. Expected gae or dreamerv3, but got", self.loss_calculation)
 
         # critic buckets
         self.min_bucket = config["min_bucket"]
@@ -175,18 +179,20 @@ class DiscreteActorCritic(nn.Module):
         advantages = torch.zeros_like(ep_rewards).to(self.device) # (SEQ_LEN, B)
         next_advantage = torch.zeros_like(last_value_pred) # (1, B)
 
-        # calculate advantages using GAE
-        # for t in reversed(range(len(ep_rewards))):
-        #     returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
-        #     td_error = returns[t] - ep_value_preds[t]
-        #     advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
+        # Loss calculation option 1: calculate advantages using GAE
+        if self.loss_calculation == "gae":
+            for t in reversed(range(len(ep_rewards))):
+                returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ep_value_preds[t+1]
+                td_error = returns[t] - ep_value_preds[t]
+                advantages[t] = next_advantage = td_error + self.gamma * self.lam * ep_masks[t] * next_advantage
 
-        # paper.
-        for t in reversed(range(len(ep_rewards))):
-            if t == len(returns)-1:
-                returns[t] = ep_value_preds[t]
-            else:
-                returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])
+        # Loss calculation option 2: DreamerV3 paper
+        if self.loss_calculation == "dreamerv3":
+            for t in reversed(range(len(ep_rewards))):
+                if t == len(returns)-1:
+                    returns[t] = ep_value_preds[t]
+                else:
+                    returns[t] = ep_rewards[t] + self.gamma * ep_masks[t] * ((1-self.lam) * ep_value_preds[t+1] + self.lam * returns[t+1])
 
         # categorical crossentropy (should be fine, I checked.)
         twohot_returns = torch.stack([twohot_encode(r) for r in returns]) # (SEQ_LEN, B, NUM_BUCKETS)        

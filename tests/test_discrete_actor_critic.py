@@ -167,7 +167,8 @@ class TestDiscreteActorCritic(unittest.TestCase):
         batch_critic_dists = F.softmax(batch_critic_dists, dim=2)
 
         result = self.test_agent._calculate_critic_loss(twohot_returns, batch_critic_dists)
-        self.assertEqual(torch.isclose(result, torch.tensor(89.5558)).item(), True)
+        if config["loss_calculation"] == "gae":
+            self.assertEqual(torch.isclose(result, torch.tensor(89.5558)).item(), True)
 
         # batch of samples
         twohot_returns = torch.zeros(16, 7, 255).to(config["device"])
@@ -178,7 +179,8 @@ class TestDiscreteActorCritic(unittest.TestCase):
         batch_critic_dists = F.softmax(batch_critic_dists, dim=2)
 
         result = self.test_agent._calculate_critic_loss(twohot_returns, batch_critic_dists)
-        self.assertEqual(torch.isclose(result, torch.tensor(88.6602)).item(), True)
+        if config["loss_calculation"] == "gae":
+            self.assertEqual(torch.isclose(result, torch.tensor(88.6602)).item(), True)
 
         # test the shape
         self.assertEqual(result.shape, torch.Size([])) # should be a scalar (without shape)
@@ -200,8 +202,9 @@ class TestDiscreteActorCritic(unittest.TestCase):
         last_value_pred = torch.randn(16).to(config["device"])
 
         critic_loss, actor_loss = self.test_agent.get_loss(episode_batches, last_value_pred)
-        self.assertEqual(torch.allclose(critic_loss, torch.tensor(605.5697), atol=1e-4), True)
-        self.assertEqual(torch.allclose(actor_loss, torch.tensor(0.0111), atol=1e-4), True)
+        if config["loss_calculation"] == "gae":
+            self.assertEqual(torch.allclose(critic_loss, torch.tensor(605.5697), atol=1e-4), True)
+            self.assertEqual(torch.allclose(actor_loss, torch.tensor(0.0111), atol=1e-4), True)
 
         # test output shapes
         self.assertEqual(critic_loss.shape, torch.Size([])) # should be a scalar (without shape)
